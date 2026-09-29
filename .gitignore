@@ -68,6 +68,10 @@ fastlane/test_output
 # 想把工程文件一并入库（CI 用）就删掉这行。
 *.xcodeproj
 
-# 本地凭据：只入库 example，真 key 永不进仓库。
-secrets/*.json
-!secrets/moonshot-key.example.json
+# 本地凭据：Key 现在只存钥匙串，仓库里没有任何 key 文件。
+
+# 构建产物（Makefile 的 .build/DerivedData）
+.build/
+
+# 本机专属的 Makefile 变量（DEVELOPMENT_TEAM / DEVICE）
+local.mk

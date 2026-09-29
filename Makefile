@@ -1,0 +1,97 @@
+# Replo —— 生成工程、跑模拟器测试、装到真机。
+#
+#   make help          看这份清单
+#   make test          模拟器上跑全部用例
+#   make run           装到已连接的手机上并拉起来
+#
+# 签名团队默认从钥匙串里的「Apple Development:」身份自动取，可覆盖：
+#   make run DEVELOPMENT_TEAM=XXXXXXXXXX
+#   或写进 local.mk（已 gitignore）。
+
+.DEFAULT_GOAL := help
+SHELL := /bin/bash
+# 管道要带出失败：xcodebuild | tail 5 那种写法否则永远返回 0，编译挂了也照样往下走。
+.SHELLFLAGS := -o pipefail -c
+
+SCHEME    := Replo
+BUNDLE_ID := com.fi2zz.replo
+CONFIG    ?= Debug
+SIM_NAME  ?= iPhone 17
+DERIVED   := .build/DerivedData
+APP_DIR   := $(DERIVED)/Build/Products/$(CONFIG)-iphoneos
+APP       := $(APP_DIR)/$(SCHEME).app
+
+# 本机专属配置（DEVELOPMENT_TEAM、DEVICE 等），不存在也不影响 make help / test。
+-include local.mk
+
+# 没写死就问钥匙串要第一个开发签名身份的 Team ID（形如 9WEANLD96Z）。
+# 写法上避开圆括号：$(shell) 里出现裸的右括号会把调用提前截断。
+IDENTITY_TEAM := $(shell security find-identity -v -p codesigning 2>/dev/null \
+	| grep -m1 'Apple Development:' \
+	| awk '{gsub(/[^A-Z0-9]/,"",$$NF); print $$NF}')
+
+# 优先用「最近一张描述文件所属的团队」：那才是 Xcode 当前登录账号真正能签的团队。
+# 钥匙串里可能留着旧个人团队的证书，只认它会撞上 No Account for Team。
+PROFILE_TEAM := $(shell ls -t ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision 2>/dev/null \
+	| head -1 \
+	| xargs -I{} security cms -D -i {} 2>/dev/null \
+	| plutil -extract TeamIdentifier.0 raw -o - - 2>/dev/null)
+
+DEVELOPMENT_TEAM ?= $(or $(PROFILE_TEAM),$(IDENTITY_TEAM))
+
+# 没指定就挑第一台在线的 iPhone。
+DEVICE ?= $(shell xcrun devicectl list devices 2>/dev/null \
+	| awk '$$3 ~ /^[0-9A-F-]{36}$$/ && $$0 ~ /iPhone/ && $$4 !~ /unavailable/ { print $$3; exit }')
+
+.PHONY: help generate build test device-list run install run-console clean
+
+help: ## 列出所有目标
+	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) \
+		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
+
+generate: ## project.yml → Replo.xcodeproj
+	@xcodegen generate
+
+build: generate ## 编译到模拟器用的 .app
+	@xcodebuild build \
+		-project $(SCHEME).xcodeproj -scheme $(SCHEME) -configuration $(CONFIG) \
+		-destination 'platform=iOS Simulator,name=$(SIM_NAME)' \
+		-derivedDataPath $(DERIVED) \
+		| tail -5
+
+test: generate ## 模拟器上跑全部用例
+	@xcodebuild test \
+		-project $(SCHEME).xcodeproj -scheme $(SCHEME) -configuration $(CONFIG) \
+		-destination 'platform=iOS Simulator,name=$(SIM_NAME)' \
+		-derivedDataPath $(DERIVED) \
+		| grep -E 'error:|✘|Test run with|Executed .* tests' || true
+
+device-list: ## 列出 devicectl 能看到的设备
+	@xcrun devicectl list devices
+	@echo '签名团队：$(DEVELOPMENT_TEAM)'
+
+run: ## 编译 → 安装 → 启动到已连接的手机
+	@$(MAKE) --no-print-directory install
+	@xcrun devicectl device process launch --device $(DEVICE) $(BUNDLE_ID)
+
+run-console: ## 同 run，但把 App 的 stdout 打到终端
+	@$(MAKE) --no-print-directory install
+	@xcrun devicectl device process launch --device $(DEVICE) $(BUNDLE_ID) --console
+
+install: generate ## 只编译并安装，不启动
+	@test -n "$(DEVICE)" || { echo '没找到在线的 iPhone，先插线或 make device-list 看看'; exit 1; }
+	@test -n "$(DEVELOPMENT_TEAM)" || { echo '取不到开发签名 Team ID，写进 local.mk 或 make run DEVELOPMENT_TEAM=XXXXXXXXXX'; exit 1; }
+	@xcodebuild build \
+		-project $(SCHEME).xcodeproj -scheme $(SCHEME) -configuration $(CONFIG) \
+		-destination 'id=$(DEVICE)' \
+		-derivedDataPath $(DERIVED) \
+		DEVELOPMENT_TEAM=$(DEVELOPMENT_TEAM) \
+		-allowProvisioningUpdates \
+		| tail -20
+	@test -d $(APP) || { echo '没编出 .app，看上面的签名报错（No Account for Team 就去 Xcode → Settings → Accounts 登录）'; exit 1; }
+	@xcrun devicectl device install app --device $(DEVICE) $(APP)
+	@echo '装好了：$(APP)'
+
+clean: ## 删掉构建产物（.build/ 与生成的 xcodeproj）
+	@rm -rf .build $(SCHEME).xcodeproj
+	@echo 'cleaned'

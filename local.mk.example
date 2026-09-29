@@ -1,0 +1,19 @@
+# 本机专属的 Makefile 变量。复制成 local.mk 后按需改；local.mk 不进仓库。
+#
+#   cp local.mk.example local.mk
+#
+# 不写也行：Makefile 会从钥匙串的签名身份、最近一张描述文件里自动推断团队，
+# 从 devicectl 里自动挑第一台在线的 iPhone。
+
+# 签名团队。Xcode → Settings → Accounts 里登录的 Apple ID 对应的 Team ID。
+# 报错 No Account for Team 说明这里填的团队没登录。
+# DEVELOPMENT_TEAM := 8Z7LGX7B48
+
+# 指定真机（不填就自动挑第一台在线的 iPhone）。
+# DEVICE := 00008030-001A2B3C4D5E6F70
+
+# 模拟器名字（make build / make test 用）。
+# SIM_NAME := iPhone 17
+
+# 构建配置。
+# CONFIG := Debug
