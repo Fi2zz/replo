@@ -60,3 +60,14 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# ── Replo ───────────────────────────────────────────────────────────────────
+.DS_Store
+
+# XcodeGen 生成物：project.yml 才是工程真源，改完跑 `xcodegen generate`。
+# 想把工程文件一并入库（CI 用）就删掉这行。
+*.xcodeproj
+
+# 本地凭据：只入库 example，真 key 永不进仓库。
+secrets/*.json
+!secrets/moonshot-key.example.json

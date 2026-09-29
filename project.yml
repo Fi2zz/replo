@@ -1,0 +1,88 @@
+name: Replo
+
+options:
+  bundleIdPrefix: com.fi2zz
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "17.0"
+  groupSortPosition: top
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    # SwiftData / Swift Charts 的地板是 iOS 17，比 Swiftus 自己声明的 16 高。
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    CLANG_ENABLE_MODULES: YES
+
+packages:
+  Swiftus:
+    # https 被墙时走 SSH：SPM 底层是 git，靠全局 `insteadOf` 把 https 重写成 ssh。
+    url: ssh://git@github.com/Fi2zz/swiftus.git
+    exactVersion: "0.1.0"
+
+targets:
+  Replo:
+    type: application
+    platform: iOS
+    sources:
+      - path: Replo
+    dependencies:
+      # 只取按需产品，跳过伞产品 Swiftus（它会把 Yams/CYaml 和 SwiftusTasks.Task 一起带进来）。
+      - package: Swiftus
+        product: SwiftusCore
+      - package: Swiftus
+        product: SwiftusFoundation
+      - package: Swiftus
+        product: SwiftusCredentials
+      - package: Swiftus
+        product: SwiftusLLM
+    info:
+      path: Replo/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Replo
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen: {}
+        UIRequiresFullScreen: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.fi2zz.replo
+        PRODUCT_NAME: Replo
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+
+  ReploTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: ReploTests
+    dependencies:
+      - target: Replo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.fi2zz.replo.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Replo:
+    build:
+      targets:
+        Replo: all
+        ReploTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - ReploTests
