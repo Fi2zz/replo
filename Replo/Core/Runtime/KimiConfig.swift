@@ -3,6 +3,8 @@ import SwiftusLLM
 /// Moonshot 端点与模型（规格第 8 节）。`credentialKey` 对应凭据源里的键名。
 enum KimiConfig {
     static let credentialKey = "KIMI_API_KEY"
+    /// 钥匙串里这一项的 service，删 Key 也按它删。
+    static let keychainService = "com.fi2zz.replo.moonshot"
     static let baseUrl = "https://api.moonshot.cn/v1"
     static let model = "moonshot-v1-8k"
 
