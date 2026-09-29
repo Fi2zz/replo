@@ -1,2 +1,0 @@
-// 模块 1（SwiftData 模型 + SeedData）与模块 2（WeightEngine / LoadPlanner）的测试落在这里。
-// 空目录不入库，占位文件只为了让工程生成后 xcodegen 有目录可挂。
