@@ -43,6 +43,27 @@ Key 存进钥匙串（service `com.fi2zz.replo.moonshot`，account `KIMI_API_KEY
 `Replo/Core/Coach/CoachDocuments.swift`）。对话只读：不传 tools，模型没有写数据的手段。
 发不出去时输入框上方会红字说明原因，不静默失败。
 
+## 联调 LLM（不打真 Moonshot）
+
+`tools/mock-kimi/mock_kimi.py` 是 OpenAI 兼容的假服务，零依赖。**它必须回 SSE**：
+Swiftus 的 `chat()` 连非流式调用也走流式端点（请求体 `stream` 恒为 true），回普通 JSON
+会被当成 0 个增量、得到空回答。
+
+```bash
+make mock            # 前台起服务，每个请求的 system/user 全文打到终端
+make mock-fail       # 固定返回 401，验 App 的错误提示
+make test-llm        # 起服务 + 跑联调用例（联调套件只在服务起着时跑）
+make run-mock        # 模拟器：装好并指到本机服务
+make run-mock-device MOCK_URL=http://192.168.1.5:8099/v1   # 真机走局域网地址
+```
+
+App 侧靠环境变量改端点，默认值不动：`KIMI_BASE_URL` / `KIMI_MODEL`。教练设置页会显示
+当前端点，被改过还会挂一条橙色提示，免得以为在跟真 Moonshot 说话。端点被指到本机时，
+钥匙串里没有 Key 会补一把占位 Key（假服务不校验 Key），干净模拟器也能直接跑。
+
+假服务的回话会把收到的东西回述一遍——三份文档在不在 system、周次和最近 7 天记录在不在
+user 前缀、历史几条——所以它同时是一份「发出去的到底是什么」的现场证据。
+
 ## 目录结构
 
 ```
@@ -62,6 +83,7 @@ Replo/
 ├── Features/       Today / SessionFlow / Calendar / Wod / Chat，一个 Tab 一个目录
 └── Resources/      Assets.xcassets、Info.plist（由 xcodegen 生成）
 ReploTests/         XCTest / swift-testing 用例
+tools/mock-kimi/    LLM 联调用的假服务（Python 标准库，无依赖）
 docs/               规格与接入文档
 ```
 

@@ -30,6 +30,13 @@ struct KimiSettingsSheet: View {
 
                 Section("Swiftus 运行时") {
                     LabeledContent("状态", value: state)
+                    LabeledContent("端点", value: KimiConfig.baseUrl)
+                    LabeledContent("模型", value: KimiConfig.model)
+                    if KimiConfig.isOverridden {
+                        Label("已被环境变量指到本机服务，不是真 Moonshot。", systemImage: "wrench.and.screwdriver")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
                     Button("重新装配", action: reboot)
                 }
 

@@ -44,6 +44,8 @@ final class ChatStore {
     func send(_ question: String) async {
         let text = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isSending else { return }
+        // 先取历史再记录：这一句要拼进前缀，不能同时又当历史发一遍。
+        let history = recentTurns()
         record(role: .user, content: text)
         isSending = true
         failure = nil
@@ -52,7 +54,8 @@ final class ChatStore {
         do {
             let answer = try await runtime.askCoach(
                 context: context,
-                conversation: recentTurns()
+                question: text,
+                conversation: history
             )
             record(role: .assistant, content: answer.isEmpty ? "（模型没返回内容）" : answer)
         } catch {
@@ -75,7 +78,8 @@ final class ChatStore {
     }
 
     /// Swiftus 的异常自带中文原因，`localizedDescription` 只会给「error 1」。
+    /// 模型服务端的报错原文也一并带出来，别让人去翻控制台。
     private static func reason(_ error: any Error) -> String {
-        (error as? CredentialsException)?.message ?? error.localizedDescription
+        ErrorText.reason(error)
     }
 }

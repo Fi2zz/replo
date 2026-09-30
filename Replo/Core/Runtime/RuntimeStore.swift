@@ -50,15 +50,14 @@ final class RuntimeStore {
     }
 
     /// 问教练一句。运行时装配失败、Key 缺失都原样抛给界面，不静默吞掉。
-    func askCoach(context: CoachContext, conversation: [LlmMessage]) async throws -> String {
+    func askCoach(context: CoachContext, question: String, conversation: [LlmMessage]) async throws -> String {
         guard let runtime else {
             throw RuntimeError.notBootstrapped
         }
-        let question = context.prefix
         return try await runtime.ask(
             system: CoachPrompt.system,
             conversation: conversation,
-            question: question
+            question: CoachPrompt.userMessage(context: context, question: question)
         )
     }
 

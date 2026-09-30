@@ -35,11 +35,19 @@ final class KeychainCredentials: Credentials {
     }
 
     /// 从钥匙串重拉快照。钥匙串里没有就清空，让 LLM 装配按「缺凭据」失败。
+    ///
+    /// 例外：端点被环境变量指到本机假服务时补一把占位 Key——假服务不校验 Key，
+    /// 这样 `make run-mock` 在干净的模拟器上也能直接跑通，不必先手输一把假 key。
     func refresh() async throws {
         let entries = [KimiConfig.credentialKey].compactMap { key -> Credential? in
             guard let value = try? KeychainStore.read(service: service, account: key),
                   !value.isEmpty else { return nil }
             return Credential(key: key, value: value)
+        }
+        if entries.isEmpty, KimiConfig.isOverridden {
+            let placeholder = Credential(key: KimiConfig.credentialKey, value: "mock-key")
+            snapshot.refreshSnapshot([placeholder.key: placeholder])
+            return
         }
         snapshot.refreshSnapshot(Dictionary(uniqueKeysWithValues: entries.map { ($0.key, $0) }))
     }

@@ -187,6 +187,23 @@ struct CoachContextBuilderTests {
         #expect(context.prefix.contains("第 1 周"))
         #expect(context.todayNote.contains("B 日"))
     }
+
+    @Test("用户消息是「上下文前缀 + 本人问句」")
+    func userMessageCarriesPrefixAndQuestion() {
+        let message = CoachPrompt.userMessage(context: .sample, question: "今天练什么")
+
+        #expect(message.hasPrefix("【当前计划】"))
+        #expect(message.hasSuffix("今天练什么"))
+    }
+
+    @Test("运行时没装好就直接说清楚，不假装发出去了")
+    func chatStoreWithoutRuntime() async throws {
+        let store = ChatStore(modelContext: TestStore.context, runtime: RuntimeStore(), context: .sample)
+        await store.send("在吗")
+
+        #expect(store.messages.count == 1, "只落了用户那句")
+        #expect(store.failure?.contains("API Key") == true)
+    }
 }
 
 /// 真库 + 固定日期，跨 actor 的取数都走它。

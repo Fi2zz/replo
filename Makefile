@@ -20,6 +20,12 @@ SIM_NAME  ?= iPhone 17
 DERIVED   := .build/DerivedData
 APP_DIR   := $(DERIVED)/Build/Products/$(CONFIG)-iphoneos
 APP       := $(APP_DIR)/$(SCHEME).app
+SIM_APP   := $(DERIVED)/Build/Products/$(CONFIG)-iphonesimulator/$(SCHEME).app
+
+# 联调用的假 Kimi 服务。真机要把地址换成 Mac 的局域网地址：
+#   make run-mock-device MOCK_URL=http://192.168.1.5:8099/v1
+MOCK_PORT ?= 8099
+MOCK_URL  ?= http://127.0.0.1:$(MOCK_PORT)/v1
 
 # 本机专属配置（DEVELOPMENT_TEAM、DEVICE 等），不存在也不影响 make help / test。
 -include local.mk
@@ -43,7 +49,7 @@ DEVELOPMENT_TEAM ?= $(or $(PROFILE_TEAM),$(IDENTITY_TEAM))
 DEVICE ?= $(shell xcrun devicectl list devices 2>/dev/null \
 	| awk '$$3 ~ /^[0-9A-F-]{36}$$/ && $$0 ~ /iPhone/ && $$4 !~ /unavailable/ { print $$3; exit }')
 
-.PHONY: help generate build test device-list run install run-console clean
+.PHONY: help generate build test test-llm mock device-list run install run-console run-mock run-mock-device clean
 
 help: ## 列出所有目标
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -69,6 +75,37 @@ test: generate ## 模拟器上跑全部用例
 device-list: ## 列出 devicectl 能看到的设备
 	@xcrun devicectl list devices
 	@echo '签名团队：$(DEVELOPMENT_TEAM)'
+
+mock: ## 起本机假 Kimi 服务（前台，日志直接看）
+	@python3 tools/mock-kimi/mock_kimi.py --port $(MOCK_PORT)
+
+mock-fail: ## 同上，但固定返回 401，用来验 App 的错误提示
+	@python3 tools/mock-kimi/mock_kimi.py --port $(MOCK_PORT) --fail 401
+
+test-llm: generate ## 起假服务并跑 LLM 联调用例
+	@set -e; \
+	python3 tools/mock-kimi/mock_kimi.py --port $(MOCK_PORT) > .build/mock-kimi.log 2>&1 & \
+	mock=$$!; \
+	trap 'kill $$mock 2>/dev/null || true' EXIT; \
+	sleep 1; \
+	xcodebuild test \
+		-project $(SCHEME).xcodeproj -scheme $(SCHEME) -configuration $(CONFIG) \
+		-destination 'platform=iOS Simulator,name=$(SIM_NAME)' \
+		-derivedDataPath $(DERIVED) \
+		| grep -E 'error:|✘|Test run with' || true; \
+	echo '假服务收到的请求：'; tail -30 .build/mock-kimi.log
+
+run-mock: generate build ## 模拟器：装好并指到本机假服务
+	@xcrun simctl install booted $(SIM_APP)
+	@SIMCTL_CHILD_KIMI_BASE_URL=$(MOCK_URL) xcrun simctl launch booted $(BUNDLE_ID)
+	@echo '指到 $(MOCK_URL) 了。假服务没起就先 make mock。'
+
+run-mock-device: install ## 真机：指到 MOCK_URL（要填 Mac 的局域网地址）
+	@xcrun devicectl device process launch \
+		--device $(DEVICE) \
+		--environment-variables "{\"KIMI_BASE_URL\":\"$(MOCK_URL)\"}" \
+		$(BUNDLE_ID)
+	@echo '指到 $(MOCK_URL) 了。真机连不到 127.0.0.1，用 Mac 的局域网地址。'
 
 run: ## 编译 → 安装 → 启动到已连接的手机
 	@$(MAKE) --no-print-directory install

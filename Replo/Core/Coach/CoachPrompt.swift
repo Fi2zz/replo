@@ -13,4 +13,10 @@ enum CoachPrompt {
     static var system: String {
         [role, CoachDocuments.all].joined(separator: "\n\n")
     }
+
+    /// 用户消息：上下文前缀在前，本人问句在后（规格 8 要求拼在前缀里）。
+    /// 抽成函数是为了让联调用例能断言「发出去的确实是拼好的这份」。
+    static func userMessage(context: CoachContext, question: String) -> String {
+        [context.prefix, question].joined(separator: "\n\n")
+    }
 }
