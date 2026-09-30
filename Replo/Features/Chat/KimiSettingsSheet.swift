@@ -88,12 +88,19 @@ struct KimiSettingsSheet: View {
                 Text(model.note)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                LabeledContent("推理档位", value: effortText)
             }
         } header: {
             Text("模型")
         } footer: {
             Text("换模型会立刻重新装配，不用重启 App。")
         }
+    }
+
+    /// 档位只对 K3 有意义，其余模型一个多余字段都不发。联调可用 KIMI_REASONING_EFFORT 顶掉。
+    private var effortText: String {
+        guard model.acceptsReasoningEffort else { return "不适用（该模型不认这个参数）" }
+        return KimiConfig.reasoningEffort.rawValue
     }
 
     private var modelBinding: Binding<KimiModel> {

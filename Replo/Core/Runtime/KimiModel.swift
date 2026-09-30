@@ -26,7 +26,27 @@ enum KimiModel: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// 能不能收请求顶层的 `reasoning_effort`。
+    ///
+    /// 官方文档明说各模型的参数配置不同，K2.6 不一定认这个字段——发过去可能直接
+    /// 报错。所以按模型分开：只有 K3 带，K2.6 一个多余字段都不发。
+    var acceptsReasoningEffort: Bool {
+        self == .k3
+    }
+
     static let fallback: KimiModel = .k3
+}
+
+/// 推理档位。K3 支持 `low` / `high` / `max`，官方默认是 `max`。
+///
+/// 这里的默认取 `high`：教练的活是「先给结论、不超过 150 字」，满档推理对这种
+/// 问法收益有限，却要等更久、花更多 token。
+enum ReasoningEffort: String, CaseIterable, Sendable {
+    case low
+    case high
+    case max
+
+    static let fallback: ReasoningEffort = .high
 }
 
 /// 模型选择的持久化。不是秘密，放 UserDefaults 就够；API Key 仍然只在钥匙串。

@@ -79,6 +79,7 @@ class Handler(BaseHTTPRequestHandler):
 
         lines = [
             "（mock）收到了。",
+            f"reasoning_effort：{body.get('reasoning_effort', '（无）')}。",
             f"system {len(system)} 字，三份文档：{'、'.join(docs) if docs else '没看到'}。",
             f"user 前缀 {len(user)} 字，周次 {'✓' if has_week else '✗'}，最近 7 天记录 {'✓' if has_recent else '✗'}。",
             f"历史消息 {len(history)} 条。这句是：{asked}",
@@ -123,7 +124,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def _log_request(self, body: dict) -> None:
         messages = body.get("messages") or []
-        print(f"\n→ POST {self.path}  model={body.get('model')}  stream={body.get('stream')}", file=sys.stderr)
+        print(
+            f"\n→ POST {self.path}  model={body.get('model')}  stream={body.get('stream')}"
+            f"  reasoning_effort={body.get('reasoning_effort', '（无）')}",
+            file=sys.stderr,
+        )
+        extra = [key for key in body if key not in {"model", "messages", "stream", "stream_options", "reasoning_effort"}]
+        if extra:
+            print(f"  其他顶层字段：{extra}", file=sys.stderr)
         print(f"  Authorization: {self.headers.get('Authorization', '(无)')[:24]}…", file=sys.stderr)
         print(f"  {len(messages)} 条消息：{[m.get('role') for m in messages]}", file=sys.stderr)
         for message in messages:

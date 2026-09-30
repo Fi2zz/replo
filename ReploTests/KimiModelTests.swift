@@ -52,6 +52,43 @@ struct KimiModelTests {
         #expect(KimiConfig.isModelOverridden == false)
     }
 
+    @Test("K3 带 reasoning_effort=high")
+    func k3SendsHighEffort() {
+        setenv("KIMI_MODEL", "kimi-k3", 1)
+        defer { unsetenv("KIMI_MODEL") }
+
+        #expect(KimiConfig.requestOptions?["reasoning_effort"]?.stringValue == "high")
+    }
+
+    @Test("K2.6 一个多余字段都不发，免得服务端不认")
+    func k26SendsNoOptions() {
+        setenv("KIMI_MODEL", "kimi-k2.6", 1)
+        defer { unsetenv("KIMI_MODEL") }
+
+        #expect(KimiConfig.requestOptions == nil)
+    }
+
+    @Test("档位可以临时顶掉，认不出的值退回默认")
+    func effortOverride() {
+        setenv("KIMI_MODEL", "kimi-k3", 1)
+        setenv("KIMI_REASONING_EFFORT", "low", 1)
+        defer {
+            unsetenv("KIMI_MODEL")
+            unsetenv("KIMI_REASONING_EFFORT")
+        }
+        #expect(KimiConfig.requestOptions?["reasoning_effort"]?.stringValue == "low")
+
+        setenv("KIMI_REASONING_EFFORT", "medium", 1)
+        #expect(KimiConfig.reasoningEffort == .high, "认不出就退回默认 high")
+    }
+
+    @Test("默认档位是 high")
+    func defaultEffortIsHigh() {
+        unsetenv("KIMI_REASONING_EFFORT")
+        #expect(KimiConfig.reasoningEffort == .high)
+        #expect(ReasoningEffort.fallback == .high)
+    }
+
     private func isolated() throws -> UserDefaults {
         try #require(UserDefaults(suiteName: "kimi-model-tests-\(UUID().uuidString)"))
     }

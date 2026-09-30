@@ -90,6 +90,28 @@ struct CoachIntegrationTests {
         Issue.record("运行时没在 2 秒内装好：\(store.state.label)")
     }
 
+    @Test("K3 的请求真的带上了 reasoning_effort=high")
+    func carriesEffortForK3() async throws {
+        setenv("KIMI_MODEL", "kimi-k3", 1)
+        defer { unsetenv("KIMI_MODEL") }
+        let runtime = try await bootstrapAgainstMock()
+
+        let answer = try await runtime.ask(system: "s", conversation: [], question: "今天练什么")
+
+        #expect(answer.contains("reasoning_effort：high"))
+    }
+
+    @Test("K2.6 的请求里没有 reasoning_effort")
+    func omitsEffortForK26() async throws {
+        setenv("KIMI_MODEL", "kimi-k2.6", 1)
+        defer { unsetenv("KIMI_MODEL") }
+        let runtime = try await bootstrapAgainstMock()
+
+        let answer = try await runtime.ask(system: "s", conversation: [], question: "今天练什么")
+
+        #expect(answer.contains("reasoning_effort：（无）"))
+    }
+
     private func bootstrapAgainstMock(pathSuffix: String = "") async throws -> ReploRuntime {
         // 这次装配会读环境变量，所以先指过去；App 里的默认端点不受影响。
         setenv("KIMI_BASE_URL", MockKimiServer.baseUrl + pathSuffix, 1)

@@ -1,4 +1,5 @@
 import Foundation
+import SwiftusCore
 import SwiftusLLM
 
 /// Moonshot 端点与模型（规格第 8 节）。`credentialKey` 对应凭据源里的键名。
@@ -19,6 +20,15 @@ enum KimiConfig {
         overridden("KIMI_MODEL") ?? KimiModelStore.selected().rawValue
     }
 
+    /// 推理档位：联调用环境变量顶掉 > 默认 high。
+    static var reasoningEffort: ReasoningEffort {
+        guard let raw = overridden("KIMI_REASONING_EFFORT"),
+              let effort = ReasoningEffort(rawValue: raw) else {
+            return ReasoningEffort.fallback
+        }
+        return effort
+    }
+
     /// 端点或模型被环境变量改过：界面上要能看出来，免得以为在跟真 Moonshot 说话。
     static var isOverridden: Bool {
         isBaseUrlOverridden || isModelOverridden
@@ -30,6 +40,14 @@ enum KimiConfig {
 
     static var isModelOverridden: Bool {
         overridden("KIMI_MODEL") != nil
+    }
+
+    /// 要并进请求体顶层的字段。当前模型不认就返回 nil，一个多余字段都不发。
+    static var requestOptions: [String: JSONValue]? {
+        guard let current = KimiModel(rawValue: model), current.acceptsReasoningEffort else {
+            return nil
+        }
+        return ["reasoning_effort": .string(reasoningEffort.rawValue)]
     }
 
     static func openAi() -> OpenAiConfig {

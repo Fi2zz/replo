@@ -30,7 +30,10 @@ final class ReploRuntime {
 
     /// 问教练一句。不传 tools：v1 对话只读，模型没有写数据的手段。
     func ask(system: String, conversation: [LlmMessage], question: String) async throws -> String {
-        let request = LlmRequest(messages: [LlmMessage("system", system)] + conversation + [LlmMessage("user", question)])
+        let request = LlmRequest(
+            messages: [LlmMessage("system", system)] + conversation + [LlmMessage("user", question)],
+            options: KimiConfig.requestOptions
+        )
         let result = try await provider.chat(request)
         return result.content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
