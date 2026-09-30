@@ -45,6 +45,10 @@ targets:
         CFBundleDisplayName: Replo
         CFBundleShortVersionString: $(MARKETING_VERSION)
         ITSAppUsesNonExemptEncryption: false
+        # 真机联调要打 http://<Mac 局域网地址>:8099，ATS 默认拦明文 HTTP。
+        # 这条只放开本地网络（私有网段与 .local），公网请求仍然强制 HTTPS。
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
         UILaunchScreen: {}
         UIRequiresFullScreen: true
         UISupportedInterfaceOrientations:

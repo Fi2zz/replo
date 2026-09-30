@@ -49,13 +49,22 @@ Key 存进钥匙串（service `com.fi2zz.replo.moonshot`，account `KIMI_API_KEY
 Swiftus 的 `chat()` 连非流式调用也走流式端点（请求体 `stream` 恒为 true），回普通 JSON
 会被当成 0 个增量、得到空回答。
 
+模拟器（两个终端）：
+
 ```bash
-make mock            # 前台起服务，每个请求的 system/user 全文打到终端
-make mock-fail       # 固定返回 401，验 App 的错误提示
-make test-llm        # 起服务 + 跑联调用例（联调套件只在服务起着时跑）
-make run-mock        # 模拟器：装好并指到本机服务
-make run-mock-device MOCK_URL=http://192.168.1.5:8099/v1   # 真机走局域网地址
+make mock      # 终端 A：起服务，每个请求的 system/user 全文打到终端
+make run-mock  # 终端 B：编译、装机、启动，并把端点指到本机服务
 ```
+
+真机（手机连不到 127.0.0.1，要走局域网）：
+
+```bash
+make mock-lan  # 终端 A：绑 0.0.0.0，并把该填的地址打出来
+make run-mock-device MOCK_URL=http://192.168.x.x:8099/v1   # 终端 B
+```
+
+其余：`make test-llm` 起服务并跑联调用例；`make mock-fail` 固定返回 401 验错误提示；
+`make lan-ip` 打印 Mac 的局域网地址。真机第一次跑要允许「本地网络」权限弹窗。
 
 App 侧靠环境变量改端点，默认值不动：`KIMI_BASE_URL` / `KIMI_MODEL`。教练设置页会显示
 当前端点，被改过还会挂一条橙色提示，免得以为在跟真 Moonshot 说话。端点被指到本机时，

@@ -22,9 +22,12 @@ APP_DIR   := $(DERIVED)/Build/Products/$(CONFIG)-iphoneos
 APP       := $(APP_DIR)/$(SCHEME).app
 SIM_APP   := $(DERIVED)/Build/Products/$(CONFIG)-iphonesimulator/$(SCHEME).app
 
-# 联调用的假 Kimi 服务。真机要把地址换成 Mac 的局域网地址：
-#   make run-mock-device MOCK_URL=http://192.168.1.5:8099/v1
+# 联调用的假 Kimi 服务。
+# 模拟器：默认绑 127.0.0.1，模拟器与 Mac 共享网络，直接能连。
+# 真机：要绑 0.0.0.0（make mock MOCK_HOST=0.0.0.0），地址填 Mac 的局域网地址：
+#   make run-mock-device MOCK_URL=http://$(make lan-ip 2>/dev/null):8099/v1
 MOCK_PORT ?= 8099
+MOCK_HOST ?= 127.0.0.1
 MOCK_URL  ?= http://127.0.0.1:$(MOCK_PORT)/v1
 
 # 本机专属配置（DEVELOPMENT_TEAM、DEVICE 等），不存在也不影响 make help / test。
@@ -49,7 +52,7 @@ DEVELOPMENT_TEAM ?= $(or $(PROFILE_TEAM),$(IDENTITY_TEAM))
 DEVICE ?= $(shell xcrun devicectl list devices 2>/dev/null \
 	| awk '$$3 ~ /^[0-9A-F-]{36}$$/ && $$0 ~ /iPhone/ && $$4 !~ /unavailable/ { print $$3; exit }')
 
-.PHONY: help generate build test test-llm mock device-list run install run-console run-mock run-mock-device clean
+.PHONY: help generate build test test-llm mock mock-fail device-list lan-ip run install run-console run-mock run-mock-device clean
 
 help: ## 列出所有目标
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -77,10 +80,17 @@ device-list: ## 列出 devicectl 能看到的设备
 	@echo '签名团队：$(DEVELOPMENT_TEAM)'
 
 mock: ## 起本机假 Kimi 服务（前台，日志直接看）
-	@python3 tools/mock-kimi/mock_kimi.py --port $(MOCK_PORT)
+	@python3 tools/mock-kimi/mock_kimi.py --port $(MOCK_PORT) --host $(MOCK_HOST)
 
 mock-fail: ## 同上，但固定返回 401，用来验 App 的错误提示
-	@python3 tools/mock-kimi/mock_kimi.py --port $(MOCK_PORT) --fail 401
+	@python3 tools/mock-kimi/mock_kimi.py --port $(MOCK_PORT) --host $(MOCK_HOST) --fail 401
+
+mock-lan: ## 真机联调用：绑 0.0.0.0，手机才连得到
+	@echo "手机填这个地址：http://$$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1):$(MOCK_PORT)/v1"
+	@python3 tools/mock-kimi/mock_kimi.py --port $(MOCK_PORT) --host 0.0.0.0
+
+lan-ip: ## 打印 Mac 的局域网地址
+	@ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo "取不到，试 ifconfig"
 
 test-llm: generate ## 起假服务并跑 LLM 联调用例
 	@set -e; \
