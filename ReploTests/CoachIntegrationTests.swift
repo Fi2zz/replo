@@ -126,6 +126,35 @@ struct CoachIntegrationTests {
         #expect(store.isSending == false)
     }
 
+    @Test("开新会话之后，下一次请求真的不带旧历史")
+    func newConversationDropsHistory() async throws {
+        setenv("KIMI_BASE_URL", MockKimiServer.baseUrl, 1)
+        defer { unsetenv("KIMI_BASE_URL") }
+        let restoreKey = MockKimiServer.stashKey()
+        defer { restoreKey() }
+        try KimiKeyStore.save("sk-mock")
+
+        let runtimeStore = RuntimeStore()
+        runtimeStore.start()
+        try await waitUntilBooted(runtimeStore)
+        let store = ChatStore(
+            modelContext: TestStore.context,
+            runtime: runtimeStore,
+            context: .sample,
+            defaults: try #require(UserDefaults(suiteName: "new-conversation-\(UUID().uuidString)"))
+        )
+
+        await store.send("第一句")
+        await store.send("第二句")
+        store.startNewConversation()
+        await store.send("第三句")
+
+        // 假服务把收到几条历史回述出来，所以这三条断言的是「真发出去的东西」。
+        #expect(store.messages[1].content.contains("历史消息 0 条"))
+        #expect(store.messages[3].content.contains("历史消息 2 条"), "同一会话里第二轮带上一问一答")
+        #expect(store.messages[5].content.contains("历史消息 0 条"), "新会话不该带旧历史")
+    }
+
     @Test("K3 的请求真的带上了 reasoning_effort=high")
     func carriesEffortForK3() async throws {
         setenv("KIMI_MODEL", "kimi-k3", 1)

@@ -22,6 +22,7 @@ struct ChatView: View {
             VStack(spacing: 0) {
                 ChatTranscript(
                     messages: store?.messages ?? [],
+                    conversationID: store?.conversationID ?? UUID(),
                     streamingText: store?.streamingText ?? "",
                     streamingReasoning: store?.streamingReasoning ?? "",
                     isSending: store?.isSending ?? false
@@ -36,13 +37,8 @@ struct ChatView: View {
             }
             .navigationTitle("教练")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        isShowingSettings = true
-                    } label: {
-                        Image(systemName: "key")
-                    }
-                }
+                ToolbarItem(placement: .topBarLeading) { newConversationButton }
+                ToolbarItem(placement: .topBarTrailing) { keyButton }
             }
             .task { prepare() }
             .alert("保存失败", isPresented: keyFailureBinding) {
@@ -61,6 +57,26 @@ struct ChatView: View {
                     onReboot: { runtime.restart() }
                 )
             }
+        }
+    }
+
+    /// 开新会话：不断开旧消息，只是让模型从此不记得上文。
+    private var newConversationButton: some View {
+        Button {
+            store?.startNewConversation()
+            store?.update(context: currentContext)
+            draft = ""
+        } label: {
+            Image(systemName: "square.and.pencil")
+        }
+        .disabled(store == nil)
+    }
+
+    private var keyButton: some View {
+        Button {
+            isShowingSettings = true
+        } label: {
+            Image(systemName: "key")
         }
     }
 
@@ -125,7 +141,22 @@ struct ChatView: View {
 
     private func prepare() {
         runtime.start()
-        let context = CoachContextBuilder.make(
+        if let store {
+            store.update(context: currentContext)
+        } else {
+            let created = ChatStore(
+                modelContext: modelContext,
+                runtime: runtime,
+                context: currentContext
+            )
+            created.reload()
+            store = created
+        }
+    }
+
+    /// 每次取都是最新的一版：换了会话、或者刚练完，都应该按当时的记录重新拼。
+    private var currentContext: CoachContext {
+        CoachContextBuilder.make(
             logs: logs,
             decisions: decisions,
             movements: movements,
@@ -133,13 +164,6 @@ struct ChatView: View {
             templates: templates,
             today: Date()
         )
-        if let store {
-            store.update(context: context)
-        } else {
-            let created = ChatStore(modelContext: modelContext, runtime: runtime, context: context)
-            created.reload()
-            store = created
-        }
     }
 
     private var keyFailureBinding: Binding<Bool> {
