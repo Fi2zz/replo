@@ -43,6 +43,26 @@ Key 存进钥匙串（service `com.fi2zz.replo.moonshot`，account `KIMI_API_KEY
 `Replo/Core/Coach/CoachDocuments.swift`）。对话只读：不传 tools，模型没有写数据的手段。
 发不出去时输入框上方会红字说明原因，不静默失败。
 
+### 模型
+
+同一页下面可以点选模型，只有两个：
+
+| 模型 | 上下文 | 说明 |
+|---|---|---|
+| `kimi-k3` | 1M token | 默认。旗舰，长文档规则跟随更稳 |
+| `kimi-k2.6` | 256K token | 通用备选，更省 |
+
+规格原稿写的是 `moonshot-v1-8k`，它已不在开放平台的可选列表里（现在给的是
+kimi-k3 / kimi-k2.7-code / kimi-k2.6 这一系），所以按规格「若失效按返回报错提示」
+的约定换成上面两个。三份文档全文约 8200 字，在这两个模型的上下文里都是零头。
+
+换模型会立刻重新装配。联调时可以 `KIMI_MODEL=kimi-k2.6` 临时顶掉，设置页会显示
+被顶掉的状态。
+
+**待定**：K3 支持请求顶层 `reasoning_effort`（`low` / `high` / `max`，默认 `max`）。
+「先给结论、不超过 150 字」这种问法未必需要满档推理，档位调低会更快更省；但各模型
+参数不同，给 K2.6 发这个字段可能直接报错，所以现在没有下发，要加得按模型分开处理。
+
 ## 联调 LLM（不打真 Moonshot）
 
 `tools/mock-kimi/mock_kimi.py` 是 OpenAI 兼容的假服务，零依赖。**它必须回 SSE**：

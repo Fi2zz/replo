@@ -170,7 +170,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Kimi 联调假服务")
     parser.add_argument("--port", type=int, default=8099)
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--model", default="moonshot-v1-8k")
+    parser.add_argument("--model", default="kimi-k3", help="只是回显用的模型名，不校验")
     parser.add_argument("--fail", type=int, default=0, help="固定返回这个 HTTP 状态码")
     parser.add_argument("--slow", type=float, default=0, help="每片之间的秒数")
     args = parser.parse_args()

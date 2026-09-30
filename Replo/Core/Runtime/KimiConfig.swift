@@ -9,19 +9,27 @@ enum KimiConfig {
 
     /// 默认端点。联调时用环境变量指向本机假服务（`make run-mock`），不改这份默认值。
     static let defaultBaseUrl = "https://api.moonshot.cn/v1"
-    static let defaultModel = "moonshot-v1-8k"
 
     static var baseUrl: String {
         overridden("KIMI_BASE_URL") ?? defaultBaseUrl
     }
 
+    /// 模型：联调用环境变量顶掉 > 设置页点选的 > 默认。
     static var model: String {
-        overridden("KIMI_MODEL") ?? defaultModel
+        overridden("KIMI_MODEL") ?? KimiModelStore.selected().rawValue
     }
 
-    /// 端点被环境变量改过：界面上要能看出来，免得以为在跟真 Moonshot 说话。
+    /// 端点或模型被环境变量改过：界面上要能看出来，免得以为在跟真 Moonshot 说话。
     static var isOverridden: Bool {
-        overridden("KIMI_BASE_URL") != nil || overridden("KIMI_MODEL") != nil
+        isBaseUrlOverridden || isModelOverridden
+    }
+
+    static var isBaseUrlOverridden: Bool {
+        overridden("KIMI_BASE_URL") != nil
+    }
+
+    static var isModelOverridden: Bool {
+        overridden("KIMI_MODEL") != nil
     }
 
     static func openAi() -> OpenAiConfig {

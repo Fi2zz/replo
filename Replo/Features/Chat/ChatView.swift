@@ -40,6 +40,7 @@ struct ChatView: View {
                     state: runtime.state.label,
                     onSave: { saveKey($0) },
                     onClear: { clearKey() },
+                    onModelChange: { pick($0) },
                     onReboot: { runtime.restart() }
                 )
             }
@@ -142,6 +143,12 @@ struct ChatView: View {
         } catch {
             keyFailure = error.localizedDescription
         }
+    }
+
+    /// 换模型：先记住再重装，provider 的模型是装配时定死的。不关面板，方便来回试。
+    private func pick(_ model: KimiModel) {
+        KimiModelStore.save(model)
+        runtime.restart()
     }
 
     // MARK: - 组装

@@ -8,7 +8,7 @@ import Testing
 ///
 /// 只在假服务起着的时候跑（`make test-llm` 会先把它拉起来），平时 `make test`
 /// 自动跳过，不因为「本机没起服务」而红。
-@Suite("教练联调", .enabled(if: MockKimiServer.reachable))
+@Suite("教练联调", .enabled(if: MockKimiServer.reachable), .serialized)
 @MainActor
 struct CoachIntegrationTests {
     @Test("走完整链路：钥匙串 → provider → SSE → 回答")
@@ -66,6 +66,9 @@ struct CoachIntegrationTests {
 
         let runtimeStore = RuntimeStore()
         runtimeStore.start()
+        defer { unsetenv("KIMI_BASE_URL") }
+        let restoreKey = MockKimiServer.stashKey()
+        defer { restoreKey() }
         try await waitUntilBooted(runtimeStore)
 
         let store = ChatStore(modelContext: TestStore.context, runtime: runtimeStore, context: .sample)
@@ -90,6 +93,9 @@ struct CoachIntegrationTests {
     private func bootstrapAgainstMock(pathSuffix: String = "") async throws -> ReploRuntime {
         // 这次装配会读环境变量，所以先指过去；App 里的默认端点不受影响。
         setenv("KIMI_BASE_URL", MockKimiServer.baseUrl + pathSuffix, 1)
+        defer { unsetenv("KIMI_BASE_URL") }
+        let restoreKey = MockKimiServer.stashKey()
+        defer { restoreKey() }
         try KimiKeyStore.save("sk-mock")
         return try await ReploRuntime.bootstrap()
     }
@@ -100,6 +106,23 @@ enum MockKimiServer {
     static let host = "127.0.0.1"
     static let port: UInt16 = 8099
     static var baseUrl: String { "http://\(host):\(port)/v1" }
+
+    /// 用例会往钥匙串里塞一把假 Key。调用方拿这个动作用 defer 收尾还原：
+    /// 测试宿主的钥匙串就是模拟器里 App 的钥匙串，留一把 sk-mock 会让 App
+    /// 拿着假 Key 去撞真接口，还显示「已就绪」。
+    static func stashKey() -> () -> Void {
+        let previous = try? KeychainStore.read(
+            service: KimiConfig.keychainService,
+            account: KimiConfig.credentialKey
+        )
+        return {
+            if let previous, !previous.isEmpty {
+                try? KimiKeyStore.save(previous)
+            } else {
+                try? KimiKeyStore.clear()
+            }
+        }
+    }
 
     /// 直接做一次 TCP 连接，不走 URLSession——这个值在读测试 trait 时求值，
     /// 不能挂起、也不该等太久。
