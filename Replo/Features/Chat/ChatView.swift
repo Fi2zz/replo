@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// 教练页：先填 Moonshot API Key，再问。问句会带上最近 7 天的训练上下文。
+/// 教练页：先填 Moonshot API Key 与模型，再问。问句会带上最近 7 天的训练上下文。
 struct ChatView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(RuntimeStore.self) private var runtime
@@ -20,12 +20,29 @@ struct ChatView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                transcript
-                inputBar
+                ChatTranscript(
+                    messages: store?.messages ?? [],
+                    streamingText: store?.streamingText ?? "",
+                    streamingReasoning: store?.streamingReasoning ?? "",
+                    isSending: store?.isSending ?? false
+                )
+                failureBanner
+                ChatComposer(
+                    text: $draft,
+                    isSending: store?.isSending ?? false,
+                    onSend: send,
+                    onStop: { store?.stop() }
+                )
             }
             .navigationTitle("教练")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { settingsButton }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isShowingSettings = true
+                    } label: {
+                        Image(systemName: "key")
+                    }
+                }
             }
             .task { prepare() }
             .alert("保存失败", isPresented: keyFailureBinding) {
@@ -33,7 +50,7 @@ struct ChatView: View {
             } message: {
                 Text(keyFailure ?? "")
             }
-            .sheet(isPresented: settingsBinding) {
+            .sheet(isPresented: $isShowingSettings) {
                 KimiSettingsSheet(
                     hasKey: runtime.hasKey,
                     fingerprint: runtime.keyFingerprint,
@@ -47,84 +64,37 @@ struct ChatView: View {
         }
     }
 
-    // MARK: - 对话
-
-    private var transcript: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 10) {
-                if store?.messages.isEmpty ?? true {
-                    Text("问点具体的，比如「硬拉这周为什么没加」「周三练完腰有点紧」。")
-                        .font(.callout)
+    /// 发不出去时在输入条上方说清楚，不静默失败。
+    @ViewBuilder
+    private var failureBanner: some View {
+        if let failure = store?.failure {
+            Button {
+                store?.dismissFailure()
+            } label: {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text(failure)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    Image(systemName: "xmark")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
-                ForEach(store?.messages ?? []) { message in
-                    Bubble(message: message)
-                }
-                if store?.isSending ?? false {
-                    ProgressView().padding(.leading, 4)
-                }
-            }
-            .padding()
-        }
-    }
-
-    private var inputBar: some View {
-        VStack(spacing: 0) {
-            if let failure = store?.failure {
-                Button {
-                    store?.dismissFailure()
-                } label: {
-                    HStack(alignment: .top, spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
-                        Text(failure)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Spacer(minLength: 0)
-                        Image(systemName: "xmark")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal)
+                .padding(.horizontal, 20)
                 .padding(.bottom, 6)
             }
-            HStack(spacing: 8) {
-                TextField("问教练…", text: $draft, axis: .vertical)
-                    .lineLimit(1...4)
-                    .textFieldStyle(.roundedBorder)
-                Button {
-                    send()
-                } label: {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.title2)
-                }
-                .disabled(!canSend)
-            }
-            .padding(.horizontal)
-            .padding(.bottom, 8)
+            .buttonStyle(.plain)
         }
     }
 
-    private var canSend: Bool {
-        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !(store?.isSending ?? true)
-    }
+    // MARK: - 动作
 
     private func send() {
         let text = draft
         draft = ""
         _Concurrency.Task { await store?.send(text) }
-    }
-
-    // MARK: - 设置
-
-    private var settingsButton: some View {
-        Button {
-            isShowingSettings = true
-        } label: {
-            Image(systemName: "key")
-        }
     }
 
     private func saveKey(_ value: String) {
@@ -172,29 +142,7 @@ struct ChatView: View {
         }
     }
 
-    private var settingsBinding: Binding<Bool> {
-        Binding(get: { isShowingSettings }, set: { isShowingSettings = $0 })
-    }
-
     private var keyFailureBinding: Binding<Bool> {
         Binding(get: { keyFailure != nil }, set: { if !$0 { keyFailure = nil } })
-    }
-}
-
-private struct Bubble: View {
-    let message: KimiChatMessage
-
-    var body: some View {
-        HStack {
-            if message.role == .user { Spacer(minLength: 40) }
-            Text(message.content)
-                .padding(10)
-                .background(background, in: .rect(cornerRadius: 12))
-            if message.role == .assistant { Spacer(minLength: 40) }
-        }
-    }
-
-    private var background: Color {
-        message.role == .user ? Color.accentColor.opacity(0.16) : Color.secondary.opacity(0.12)
     }
 }

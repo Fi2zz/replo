@@ -51,10 +51,25 @@ final class RuntimeStore {
 
     /// 问教练一句。运行时装配失败、Key 缺失都原样抛给界面，不静默吞掉。
     func askCoach(context: CoachContext, question: String, conversation: [LlmMessage]) async throws -> String {
+        let stream = try await askCoachStream(context: context, question: question, conversation: conversation)
+        var answer = ""
+        for try await event in stream {
+            if case .textDelta(let delta) = event { answer += delta }
+        }
+        return answer.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// 流式问教练。装配没完成就直接抛，不返回一个只会立刻失败的空流。
+    /// `await` 是因为真正建流的那层在 `@ContextTreeActor` 上。
+    func askCoachStream(
+        context: CoachContext,
+        question: String,
+        conversation: [LlmMessage]
+    ) async throws -> AsyncThrowingStream<LlmStreamEvent, Error> {
         guard let runtime else {
             throw RuntimeError.notBootstrapped
         }
-        return try await runtime.ask(
+        return await runtime.askStream(
             system: CoachPrompt.system,
             conversation: conversation,
             question: CoachPrompt.userMessage(context: context, question: question)

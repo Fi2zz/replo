@@ -90,6 +90,42 @@ struct CoachIntegrationTests {
         Issue.record("运行时没在 2 秒内装好：\(store.state.label)")
     }
 
+    @Test("流式：增量真的分片到达，拼起来是完整回答")
+    func streamsDeltas() async throws {
+        let runtime = try await bootstrapAgainstMock()
+
+        let stream = await runtime.askStream(system: "s", conversation: [], question: "今天练什么")
+        var deltas: [String] = []
+        for try await event in stream {
+            if case .textDelta(let delta) = event { deltas.append(delta) }
+        }
+
+        #expect(deltas.count > 1, "要边生成边到，不能一次给完")
+        #expect(deltas.joined().contains("（mock）收到了"))
+    }
+
+    @Test("ChatStore 流式：收完落一条助手消息，草稿清空")
+    func chatStoreStreamsThenPersists() async throws {
+        setenv("KIMI_BASE_URL", MockKimiServer.baseUrl, 1)
+        defer { unsetenv("KIMI_BASE_URL") }
+        let restoreKey = MockKimiServer.stashKey()
+        defer { restoreKey() }
+        try KimiKeyStore.save("sk-mock")
+
+        let runtimeStore = RuntimeStore()
+        runtimeStore.start()
+        try await waitUntilBooted(runtimeStore)
+
+        let store = ChatStore(modelContext: TestStore.context, runtime: runtimeStore, context: .sample)
+        await store.send("今天练什么")
+
+        #expect(store.failure == nil)
+        #expect(store.messages.count == 2)
+        #expect(store.messages.last?.content.contains("（mock）收到了") == true)
+        #expect(store.streamingText.isEmpty, "收完草稿要清掉，否则界面上会重影")
+        #expect(store.isSending == false)
+    }
+
     @Test("K3 的请求真的带上了 reasoning_effort=high")
     func carriesEffortForK3() async throws {
         setenv("KIMI_MODEL", "kimi-k3", 1)

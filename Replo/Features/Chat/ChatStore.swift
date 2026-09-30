@@ -4,12 +4,16 @@ import SwiftusCredentials
 import SwiftusLLM
 import Observation
 
-/// 对话状态：消息、发送中、错误。对话只读，模型不写任何数据（规格 8）。
+/// 对话状态：消息、流式草稿、发送中、错误。对话只读，模型不写任何数据（规格 8）。
 @MainActor
 @Observable
 final class ChatStore {
     private(set) var messages: [KimiChatMessage] = []
     private(set) var isSending = false
+    /// 正在流式接收的正文，界面拿它当「正在说的那句」渲染。
+    private(set) var streamingText = ""
+    /// 正在流式接收的思考过程（K3 会先想再答）。
+    private(set) var streamingReasoning = ""
     /// 最近一次发问失败的原因。v1 不静默失败：发不出去就要在界面上说清楚。
     private(set) var failure: String?
     /// 拼给模型的最近几轮对话，超出就丢最老的。
@@ -17,6 +21,7 @@ final class ChatStore {
 
     private let modelContext: ModelContext
     private let runtime: RuntimeStore
+    private var inFlight: _Concurrency.Task<Void, Never>?
     private static let maxTurns = 6
 
     init(modelContext: ModelContext, runtime: RuntimeStore, context: CoachContext) {
@@ -41,6 +46,7 @@ final class ChatStore {
         failure = nil
     }
 
+    /// 发一句。流式接收：先建一条空的助手消息占位，增量往里填，收完落库。
     func send(_ question: String) async {
         let text = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isSending else { return }
@@ -49,18 +55,74 @@ final class ChatStore {
         record(role: .user, content: text)
         isSending = true
         failure = nil
-        defer { isSending = false }
+        streamingText = ""
+        streamingReasoning = ""
 
+        let task = _Concurrency.Task { await receive(history: history, question: text) }
+        inFlight = task
+        await task.value
+        inFlight = nil
+    }
+
+    /// 停止生成。已经收到的部分照实留下，标一下是被停的。
+    func stop() {
+        inFlight?.cancel()
+    }
+
+    /// 收流：正文增量拼成答案，思考增量单独走，收完写一条助手消息。
+    private func receive(history: [LlmMessage], question: String) async {
+        defer { clearStreamingState() }
         do {
-            let answer = try await runtime.askCoach(
+            let stream = try await runtime.askCoachStream(
                 context: context,
-                question: text,
+                question: question,
                 conversation: history
             )
-            record(role: .assistant, content: answer.isEmpty ? "（模型没返回内容）" : answer)
+            try await consume(stream)
+            commitAnswer()
+        } catch is CancellationError {
+            finishPartial()
         } catch {
-            failure = Self.reason(error)
+            failure = ErrorText.reason(error)
         }
+    }
+
+    /// 边收边填。被取消时抛出去，交给上面按「已停止」收尾。
+    private func consume(_ stream: AsyncThrowingStream<LlmStreamEvent, Error>) async throws {
+        for try await event in stream {
+            if _Concurrency.Task.isCancelled { throw CancellationError() }
+            ingest(event)
+        }
+    }
+
+    private func ingest(_ event: LlmStreamEvent) {
+        switch event {
+        case .textDelta(let delta):
+            streamingText += delta
+        case .reasoningDelta(let delta):
+            streamingReasoning += delta
+        case .done:
+            break
+        }
+    }
+
+    private func clearStreamingState() {
+        isSending = false
+        streamingText = ""
+        streamingReasoning = ""
+    }
+
+    /// 流正常收完：落一条助手消息。空回复也如实说，不留一条看不出所以然的气泡。
+    private func commitAnswer() {
+        let answer = streamingText.trimmingCharacters(in: .whitespacesAndNewlines)
+        record(role: .assistant, content: answer.isEmpty ? "（模型没返回内容）" : answer)
+    }
+
+    /// 被中止：收到多少留多少。
+    private func finishPartial() {
+        let partial = streamingText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !partial.isEmpty else { return }
+        record(role: .assistant, content: partial + "\n\n（已停止）")
     }
 
     /// 只把最近几轮交给模型，避免越聊越贵；训练上下文另走前缀。
@@ -75,11 +137,5 @@ final class ChatStore {
         modelContext.insert(message)
         try? modelContext.save()
         messages.append(message)
-    }
-
-    /// Swiftus 的异常自带中文原因，`localizedDescription` 只会给「error 1」。
-    /// 模型服务端的报错原文也一并带出来，别让人去翻控制台。
-    private static func reason(_ error: any Error) -> String {
-        ErrorText.reason(error)
     }
 }

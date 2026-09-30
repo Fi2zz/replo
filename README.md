@@ -43,6 +43,13 @@ Key 存进钥匙串（service `com.fi2zz.replo.moonshot`，account `KIMI_API_KEY
 `Replo/Core/Coach/CoachDocuments.swift`）。对话只读：不传 tools，模型没有写数据的手段。
 发不出去时输入框上方会红字说明原因，不静默失败。
 
+界面三件事：
+- **流式**：走 Swiftus 的 `chatStream`，正文增量边收边显示，K3 的思考增量显示成「思考中…」。
+  生成中发送键变成停止键，停下来的部分照实留下并标「（已停止）」。
+- **markdown**：`MarkdownParser` 先把回复切成段落/标题/列表/代码块，行内格式（粗体、行内代码、
+  链接）交给系统 `AttributedString(markdown:)`——`Text` 不渲染列表和代码块，所以块级得自己切。
+- **输入条**：一颗胶囊，空的时候两侧干净，有内容才浮出发送键。
+
 ### 模型
 
 同一页下面可以点选模型，只有两个：
