@@ -8,7 +8,10 @@ import Observation
 @MainActor
 @Observable
 final class ChatStore {
+    /// 当前会话的消息。界面只显示这一段的，开新会话就是干净的一屏。
     private(set) var messages: [KimiChatMessage] = []
+    /// 历史会话列表（含当前这条），按最近活动倒序。
+    private(set) var conversations: [ConversationSummary] = []
     private(set) var isSending = false
     /// 正在流式接收的正文，界面拿它当「正在说的那句」渲染。
     private(set) var streamingText = ""
@@ -19,16 +22,17 @@ final class ChatStore {
     /// 拼给模型的最近几轮对话，超出就丢最老的。
     private(set) var context: CoachContext
 
-    /// 当前会话 id。历史只在这一段里取，开新会话就是换掉它。
+    /// 当前会话 id。历史只在这一段里取。
     private(set) var conversationID: UUID
     /// 当前会话里还没说过话。
-    var conversationIsEmpty: Bool {
-        !messages.contains { $0.conversationID == conversationID }
-    }
+    var conversationIsEmpty: Bool { messages.isEmpty }
 
     private let modelContext: ModelContext
     private let runtime: RuntimeStore
     private let defaults: UserDefaults
+    /// 全量消息。列表要跨会话，界面只要当前那段，所以两份都留着，
+    /// 免得每来一条消息都要重新查一遍库。
+    private var allMessages: [KimiChatMessage] = []
     private var inFlight: _Concurrency.Task<Void, Never>?
     private static let maxTurns = 6
 
@@ -46,16 +50,47 @@ final class ChatStore {
     }
 
     /// 每次回到页面重新拉一遍：消息落库了，聊天历史要能跨启动看得到。
-    /// 拉的是全部会话——旧的还要能往回翻，只是不再发给模型。
+    /// 拉全量再挑出当前会话——列表要的是全部，界面要的是当前那段。
     func reload() {
         let descriptor = FetchDescriptor<KimiChatMessage>(sortBy: [SortDescriptor(\.createdAt)])
-        messages = (try? modelContext.fetch(descriptor)) ?? []
+        apply(all: (try? modelContext.fetch(descriptor)) ?? [])
     }
 
-    /// 开新会话。旧消息留着，模型的上下文从零开始。
+    /// 开新会话：干净的一屏，模型的上下文从零开始。旧会话进历史列表，一条不丢。
     func startNewConversation() {
         stop()
         conversationID = KimiConversationStore.startNew(in: defaults)
+        reload()
+    }
+
+    /// 切到某个历史会话继续聊。
+    func switchTo(_ id: UUID) {
+        guard id != conversationID else { return }
+        stop()
+        conversationID = id
+        KimiConversationStore.select(id, in: defaults)
+        reload()
+    }
+
+    /// 删掉整段会话。删的是当前那段就顺手开一段新的，不留空白状态。
+    func deleteConversation(_ id: UUID) {
+        let doomed = allMessages.filter { $0.conversationID == id }
+        guard !doomed.isEmpty else { return }
+        if id == conversationID { stop() }
+        for message in doomed {
+            modelContext.delete(message)
+        }
+        try? modelContext.save()
+        if id == conversationID {
+            conversationID = KimiConversationStore.startNew(in: defaults)
+        }
+        reload()
+    }
+
+    private func apply(all: [KimiChatMessage]) {
+        allMessages = all
+        messages = ConversationLog.messages(all, in: conversationID)
+        conversations = ConversationLog.summaries(from: all)
     }
 
     /// 把最新的训练上下文换进去（进入页面时调一次）。
@@ -161,5 +196,7 @@ final class ChatStore {
         modelContext.insert(message)
         try? modelContext.save()
         messages.append(message)
+        allMessages.append(message)
+        conversations = ConversationLog.summaries(from: allMessages)
     }
 }

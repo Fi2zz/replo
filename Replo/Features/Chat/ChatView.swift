@@ -16,13 +16,13 @@ struct ChatView: View {
     @State private var draft = ""
     @State private var keyFailure: String?
     @State private var isShowingSettings = false
+    @State private var isShowingHistory = false
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 ChatTranscript(
                     messages: store?.messages ?? [],
-                    conversationID: store?.conversationID ?? UUID(),
                     streamingText: store?.streamingText ?? "",
                     streamingReasoning: store?.streamingReasoning ?? "",
                     isSending: store?.isSending ?? false
@@ -37,7 +37,8 @@ struct ChatView: View {
             }
             .navigationTitle("教练")
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { newConversationButton }
+                ToolbarItem(placement: .topBarLeading) { historyButton }
+                ToolbarItem(placement: .topBarTrailing) { newConversationButton }
                 ToolbarItem(placement: .topBarTrailing) { keyButton }
             }
             .task { prepare() }
@@ -45,6 +46,15 @@ struct ChatView: View {
                 Button("好", role: .cancel) {}
             } message: {
                 Text(keyFailure ?? "")
+            }
+            .sheet(isPresented: $isShowingHistory) {
+                ConversationListSheet(
+                    conversations: store?.conversations ?? [],
+                    currentID: store?.conversationID ?? UUID(),
+                    onSelect: { store?.switchTo($0) },
+                    onDelete: { store?.deleteConversation($0) },
+                    onStartNew: { startNewConversation() }
+                )
             }
             .sheet(isPresented: $isShowingSettings) {
                 KimiSettingsSheet(
@@ -60,14 +70,21 @@ struct ChatView: View {
         }
     }
 
-    /// 开新会话：不断开旧消息，只是让模型从此不记得上文。
+    /// 开新会话：干净的一屏，旧的进历史列表。
     private var newConversationButton: some View {
         Button {
-            store?.startNewConversation()
-            store?.update(context: currentContext)
-            draft = ""
+            startNewConversation()
         } label: {
             Image(systemName: "square.and.pencil")
+        }
+        .disabled(store == nil)
+    }
+
+    private var historyButton: some View {
+        Button {
+            isShowingHistory = true
+        } label: {
+            Image(systemName: "clock.arrow.circlepath")
         }
         .disabled(store == nil)
     }
@@ -106,6 +123,12 @@ struct ChatView: View {
     }
 
     // MARK: - 动作
+
+    private func startNewConversation() {
+        store?.startNewConversation()
+        store?.update(context: currentContext)
+        draft = ""
+    }
 
     private func send() {
         let text = draft

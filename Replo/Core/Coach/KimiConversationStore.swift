@@ -15,11 +15,16 @@ enum KimiConversationStore {
         return id
     }
 
+    /// 切换当前会话：历史会话点进去接着聊，也是从这里走。
+    static func select(_ id: UUID, in defaults: UserDefaults = .standard) {
+        defaults.set(id.uuidString, forKey: defaultsKey)
+    }
+
     /// 开一次新会话，返回新 id。
     @discardableResult
     static func startNew(in defaults: UserDefaults = .standard) -> UUID {
         let id = UUID()
-        defaults.set(id.uuidString, forKey: defaultsKey)
+        select(id, in: defaults)
         return id
     }
 }
