@@ -33,7 +33,7 @@
 - 硬规则：引擎不调用 DateTime/Date() 取系统时钟，今天日期一律由调用方注入
 
 ### C. 训练课流程（SwiftUI）
-- 今日 Tab：按「周节律」显示今天内容（力量课=动作+重量+组次卡片；有氧/体能/全休各有文案）
+- 日历 Tab：月视图 + 下方按「周节律」显示选中日内容，默认高亮今天（力量课=动作+重量+组次卡片；有氧/体能/全休各有文案），今天的力量课直接进入训练；整页可上下滚动
 - 训练页：动作列表逐项记录；每项 = 热身组提示（按重量百分比 空杆→50%→70%）+ 正式组逐组打勾 + 组间休息计时（默认180秒，可调）
 - 复盘页：RIR stepper(0-5)、不适 toggle、RPE slider(1-10)、备注
 - 决策页：展示下次重量 + 理由文案 + 警示区徽章；确认后写 SessionLog + WeightDecision
@@ -50,7 +50,7 @@
 列表 + 折线图（SwiftUI Charts），自动算周平均，目标区间 68-71kg 用背景色带
 
 ### F. 日历
-月视图四色：力量(红)/高强度有氧(橙)/低强度有氧(绿)/全休(灰)；点击某日显示当日应做内容
+月视图四色：力量(红)/高强度有氧(橙)/低强度有氧(绿)/全休(灰)；点击某日在下方显示当日应做内容（见 C 节日历 Tab）
 
 ### G. Kimi 教练
 - 设置页存 API Key 到 Keychain
@@ -89,7 +89,7 @@ UI 层组件签名以你实现时合理拆分为准，但 View 文件 ≤ 200 �
 - `SeedData`：全部种子（动作/计划/WOD）的声明式数据
 - `SessionStore` / `WeightStore` / `ChatStore`：各自 ObservableObject
 - `KimiClient`：URLSession 封装，Keychain 读 key
-- Views：`TodayView/CalendarView/WeightView/WodListView/ChatView/SessionFlow/`（内部分页文件）
+- Views：`CalendarView/WeightView/WodListView/ChatView/SessionFlow/`（内部分页文件）
 
 ## 代码约束（强制，逐条遵守）
 

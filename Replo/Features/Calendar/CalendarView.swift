@@ -1,27 +1,35 @@
 import SwiftData
 import SwiftUI
 
-/// 日历：月视图四色标记，点某天看当天该练什么（规格 7）。
+/// 日历：月视图四色标记，下方跟选中日的安排，默认选中今天（规格 7）。
 struct CalendarView: View {
+    @Environment(\.modelContext) private var context
     @Query private var logs: [SessionLog]
     @Query private var wodResults: [WodResult]
 
     @State private var month = Date()
-    @State private var selected: MonthDay?
+    @State private var selectedDate = Date()
+    @State private var failure: String?
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                monthHeader
-                weekdayHeader
-                grid
-                legend
-                Spacer(minLength: 0)
+            ScrollView {
+                VStack(spacing: 12) {
+                    monthHeader
+                    weekdayHeader
+                    grid
+                    legend
+                    Divider()
+                    DayPlanDetail(date: selectedDate)
+                }
+                .padding()
             }
-            .padding()
             .navigationTitle("日历")
-            .sheet(item: $selected) { day in
-                DayPlanSheet(day: day, month: month)
+            .task { importSeeds() }
+            .alert("种子导入失败", isPresented: failureBinding) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text(failure ?? "")
             }
         }
     }
@@ -62,9 +70,9 @@ struct CalendarView: View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 8) {
             ForEach(days) { day in
                 Button {
-                    selected = day
+                    selectedDate = day.date
                 } label: {
-                    DayCell(day: day)
+                    DayCell(day: day, selected: selected(day))
                 }
                 .buttonStyle(.plain)
             }
@@ -100,20 +108,40 @@ struct CalendarView: View {
             || wodResults.contains { calendar.isDate($0.date, inSameDayAs: date) }
     }
 
+    private func selected(_ day: MonthDay) -> Bool {
+        Calendar.current.isDate(day.date, inSameDayAs: selectedDate)
+    }
+
     private var monthTitle: String { DateFormat.monthTitleText(month) }
 
     private var weekdayTitles: [String] {
         ["一", "二", "三", "四", "五", "六", "日"]
     }
 
+    // MARK: - 动作
+
     private func shiftMonth(by value: Int) {
         guard let next = Calendar.current.date(byAdding: .month, value: value, to: month) else { return }
         month = next
+    }
+
+    private func importSeeds() {
+        guard failure == nil else { return }
+        do {
+            try SeedImporter.applyOnce(to: context)
+        } catch {
+            failure = String(describing: error)
+        }
+    }
+
+    private var failureBinding: Binding<Bool> {
+        Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })
     }
 }
 
 private struct DayCell: View {
     let day: MonthDay
+    let selected: Bool
 
     var body: some View {
         VStack(spacing: 4) {
@@ -125,6 +153,12 @@ private struct DayCell: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 6)
         .background(day.isToday ? Color.accentColor.opacity(0.12) : .clear, in: .rect(cornerRadius: 8))
+        .overlay {
+            if selected {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color.accentColor, lineWidth: 1.5)
+            }
+        }
     }
 
     @ViewBuilder

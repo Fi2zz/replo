@@ -160,16 +160,15 @@ struct DecisionInput {
 
 ```
 TabView
-├── 今日（TodayView）
-│   └── 根据日历节律显示：今天该练什么 / 今日课程卡片（动作+重量+组次）
 ├── 日历（CalendarView）
-│   └── 月视图：力量/有氧/体能/全休 四色标记；点击跳转当日课程
+│   └── 月视图：力量/有氧/体能/全休 四色标记；下方跟选中日安排（默认高亮今天），
+│       力量日可直接开始训练；整页可上下滚动
 ├── WOD（WodListView → WodTimerView）
 ├── 体重（WeightView：折线 + 周平均 + 目标区间带）
 └── 教练（ChatView：Kimi 对话）
 ```
 
-训练课流程（今日 Tab 进入）：
+训练课流程（日历 Tab 进入）：
 `SessionView`：动作列表 → 每个动作 `MovementLoggingView`
 （热身组提示 / 正式组打勾 / 组间休息计时默认 3 分钟可改）
 → 全部完成进入 `RecapView`（RIR stepper / 不适 toggle / RPE slider / 备注）
