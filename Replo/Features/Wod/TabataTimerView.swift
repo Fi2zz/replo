@@ -1,16 +1,13 @@
 import SwiftData
 import SwiftUI
 
-/// TABATA 计时页：开场调参数（动作 / 工作 / 休息 / 轮数），计时中显示段与轮次，
-/// 结束记成绩。手册：TABATA 与 WOD 二选一，默认战绳 20 秒 / 10 秒 × 8 轮。
+/// TABATA 计时页：开场只填动作（参数固定 20 秒 / 10 秒 × 8 轮），计时中显示段与轮次，
+/// 结束记成绩。手册：TABATA 与 WOD 二选一，默认战绳。
 /// 动作不内置，用户点「添加动作」自行输入，数量不限；填了多个时按轮轮换。
 struct TabataTimerView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var movements: [String] = []
-    @State private var workSeconds = 20
-    @State private var restSeconds = 10
-    @State private var rounds = 8
     @State private var ticker: TabataTicker?
     @State private var isRecording = false
 
@@ -35,15 +32,20 @@ struct TabataTimerView: View {
     private var setupPanel: some View {
         VStack(spacing: 16) {
             movementEditor
-            Stepper("工作 \(workSeconds) 秒", value: $workSeconds, in: 5...60)
-            Stepper("休息 \(restSeconds) 秒", value: $restSeconds, in: 5...60)
-            Stepper("\(rounds) 轮", value: $rounds, in: 1...20)
-            Text("动作自己填，可添加多个，计时按轮轮换。手册默认战绳 20 秒 / 10 秒 × 8 轮；壶铃摆动和跑步机不做 TABATA（伤腰 / 易摔）。")
+            Text("动作自己填，可添加多个，计时按轮轮换。固定 20 秒 / 10 秒 × 8 轮；壶铃摆动和跑步机不做 TABATA（伤腰 / 易摔）。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Button("开始", action: start)
-                .buttonStyle(.borderedProminent)
+            HStack(spacing: 10) {
+                Button("添加动作", systemImage: "plus") { movements.append("") }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .frame(maxWidth: .infinity)
+                Button("开始", action: start)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .frame(maxWidth: .infinity)
+            }
         }
     }
 
@@ -56,10 +58,6 @@ struct TabataTimerView: View {
             ForEach(movements.indices, id: \.self) { index in
                 movementRow(index)
             }
-            Button("添加动作", systemImage: "plus") { movements.append("") }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .frame(maxWidth: .infinity)
         }
     }
 
@@ -179,9 +177,7 @@ struct TabataTimerView: View {
     }
 
     private func start() {
-        let model = TabataTimerModel(
-            workSeconds: workSeconds, restSeconds: restSeconds, totalRounds: rounds
-        )
+        let model = TabataTimerModel()
         let created = TabataTicker(model: model)
         ticker = created
         created.start()
