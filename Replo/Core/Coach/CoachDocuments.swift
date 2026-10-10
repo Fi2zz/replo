@@ -41,7 +41,7 @@ enum CoachDocuments {
 9/21 一  B1 ✅（超预期，已重新标定）
 9/23 三  可选：休息或空杆技术
 9/25 五  A2 ✗ 空缺（骑车去了）
-9/28 一  B2（警示区：深蹲85/硬拉100，最严标准）← 今天
+9/28 一  B2（警示区：深蹲85/硬拉100，最严标准）
 9/30 三  体能课（WOD 5 摸底）
 10/2 五  A2（顺延，重量不变：卧推42.5/划船45/前蹲45）
 10/5 一  B3
@@ -352,6 +352,11 @@ EMOM 12 分钟：奇数分钟 12 壶铃摆动 + 偶数分钟 10 俯卧撑 + 战�
     /// 三份文档按计划 → WOD → 动作说明的顺序拼起来。
     /// 每篇开头的换行是 Swift 多行字面量的固有产物，拼之前去掉。
     static let all = [plan, wod, movement]
+        .map { $0.trimmingCharacters(in: .newlines) }
+        .joined(separator: "\n\n\n")
+
+    /// 用户关掉「当前计划与今天安排」时用：不含计划文档，教练看不到计划规则。
+    static let withoutPlan = [wod, movement]
         .map { $0.trimmingCharacters(in: .newlines) }
         .joined(separator: "\n\n\n")
 }

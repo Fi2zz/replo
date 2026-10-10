@@ -16,7 +16,7 @@ struct CoachIntegrationTests {
         let runtime = try await bootstrapAgainstMock()
 
         let answer = try await runtime.ask(
-            system: CoachPrompt.system,
+            system: CoachPrompt.system(),
             conversation: [],
             question: CoachPrompt.userMessage(context: .sample, question: "今天练什么")
         )
@@ -34,7 +34,7 @@ struct CoachIntegrationTests {
         let runtime = try await bootstrapAgainstMock()
 
         let answer = try await runtime.ask(
-            system: CoachPrompt.system,
+            system: CoachPrompt.system(),
             conversation: [
                 LlmMessage("user", "硬拉这周为什么没加"),
                 LlmMessage("assistant", "余力只剩 1 次，原地重复。"),

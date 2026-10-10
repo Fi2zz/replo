@@ -6,15 +6,32 @@ import Testing
 
 @Suite("教练 prompt 与上下文")
 struct CoachPromptTests {
-    @Test("system 里带角色设定和三份文档全文")
+    @Test("system 里带角色设定、当天日期和三份文档全文")
     func systemCarriesRoleAndDocuments() {
-        let system = CoachPrompt.system
+        let system = CoachPrompt.system()
 
         #expect(system.contains("你是 Replo 的教练"))
         #expect(system.contains("不超过 150 字"))
+        #expect(system.contains("今天是 \(DateFormat.fullText(Date()))。"))
         #expect(system.contains("练啥 · 完整训练与减脂计划"))
         #expect(system.contains("练啥 · WOD 训练手册"))
         #expect(system.contains("动作说明文档"))
+        #expect(system.contains("← 今天") == false)
+    }
+
+    @Test("关掉计划：计划文档不进 system，日期行仍在")
+    func systemWithoutPlanDropsPlanDocument() {
+        let system = CoachPrompt.system(includePlan: false)
+
+        #expect(system.contains("练啥 · 完整训练与减脂计划") == false)
+        #expect(system.contains("练啥 · WOD 训练手册"))
+        #expect(system.contains("动作说明文档"))
+        #expect(system.contains("今天是"))
+    }
+
+    @Test("计划文档的日历不标「今天」，日期只走 system 的当天日期行")
+    func planDocumentHasNoStaleTodayMarker() {
+        #expect(CoachDocuments.plan.contains("← 今天") == false)
     }
 
     @Test("三份文档的关键规则确实在 prompt 里")

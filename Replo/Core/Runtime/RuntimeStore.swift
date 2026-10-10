@@ -70,7 +70,7 @@ final class RuntimeStore {
             throw RuntimeError.notBootstrapped
         }
         return await runtime.askStream(
-            system: CoachPrompt.system,
+            system: CoachPrompt.system(today: Date(), includePlan: context.planIncluded),
             conversation: conversation,
             question: CoachPrompt.userMessage(context: context, question: question)
         )
