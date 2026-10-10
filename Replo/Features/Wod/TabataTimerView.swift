@@ -93,14 +93,36 @@ struct TabataTimerView: View {
             Text(segmentTitle(ticker.timer))
                 .font(.title2.weight(.bold))
                 .foregroundStyle(segmentColor(ticker.timer))
-            Text(segmentClock(ticker.timer))
-                .font(.system(size: 64, weight: .semibold, design: .rounded))
-                .monospacedDigit()
+            countdownRing(ticker.timer)
             Text("第 \(ticker.timer.currentRound) / \(ticker.timer.totalRounds) 轮 · \(currentMovement(for: ticker.timer.currentRound))")
                 .font(.callout)
                 .foregroundStyle(.secondary)
             transport(ticker)
         }
+    }
+
+    /// 大圆环倒计时：外圈按当前段剩余比例收拢，圆心放剩余秒数；每秒线性扫一格。
+    private func countdownRing(_ timer: TabataTimerModel) -> some View {
+        ZStack {
+            Circle()
+                .stroke(.quaternary, lineWidth: 14)
+            Circle()
+                .trim(from: 0, to: ringProgress(timer))
+                .stroke(segmentColor(timer), style: StrokeStyle(lineWidth: 14, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Text(segmentClock(timer))
+                .font(.system(size: 56, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+        }
+        .frame(width: 220, height: 220)
+        .animation(.linear(duration: 1), value: timer.segmentRemaining)
+    }
+
+    /// 当前段剩余比例：跑完归零，否则剩余秒 / 段时长（工作段或休息段各自的时长）。
+    private func ringProgress(_ timer: TabataTimerModel) -> Double {
+        guard timer.phase != .finished else { return 0 }
+        let total = timer.segment == .work ? timer.workSeconds : timer.restSeconds
+        return Double(timer.segmentRemaining) / Double(total)
     }
 
     /// 多个动作按轮轮换（第 1 轮第一个、第 2 轮第二个……绕圈）；全留空时退回显示「TABATA」。
@@ -120,21 +142,32 @@ struct TabataTimerView: View {
         return timer.segment == .work ? Color.green : Color.orange
     }
 
+    /// 控制按钮一行一个、撑满宽度，计时中手指好够。
     private func transport(_ ticker: TabataTicker) -> some View {
         VStack(spacing: 10) {
-            HStack(spacing: 12) {
-                Button(ticker.isRunning ? "暂停" : "继续") {
-                    ticker.isRunning ? ticker.pause() : ticker.start()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(ticker.timer.phase == .finished)
-
-                Button("重置") { self.ticker = nil }
-                    .buttonStyle(.bordered)
+            Button {
+                ticker.isRunning ? ticker.pause() : ticker.start()
+            } label: {
+                Text(ticker.isRunning ? "暂停" : "继续")
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(ticker.timer.phase == .finished)
+
+            Button { self.ticker = nil } label: {
+                Text("重置")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+
             if ticker.timer.phase == .finished {
-                Button("记录成绩") { isRecording = true }
-                    .buttonStyle(.bordered)
+                Button { isRecording = true } label: {
+                    Text("记录成绩")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
             }
         }
     }
