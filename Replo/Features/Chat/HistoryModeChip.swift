@@ -4,17 +4,20 @@ import SwiftUI
 /// 不自己持久化，换档交给宿主的 onChange（与设置面板共享同一份 UserDefaults）。
 struct HistoryModeChip: View {
     let mode: CoachHistoryMode
+    let planIncluded: Bool
     let onChange: (CoachHistoryMode) -> Void
+    let onPlanIncludedChange: (Bool) -> Void
 
     var body: some View {
         Menu {
-            Picker("训练参考", selection: binding) {
+            Picker("训练参考", selection: modeBinding) {
                 ForEach(CoachHistoryMode.allCases) { candidate in
                     Text(candidate.title).tag(candidate)
                 }
             }
+            Toggle("当前计划与今天安排", isOn: planIncludedBinding)
         } label: {
-            Label("参考：\(mode.title)", systemImage: "clock")
+            Label(labelText, systemImage: "clock")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 10)
@@ -26,10 +29,22 @@ struct HistoryModeChip: View {
         .padding(.bottom, 6)
     }
 
-    private var binding: Binding<CoachHistoryMode> {
+    /// 计划被关掉时在 chip 上看得出来，不然发出去的上下文和看到的不一致。
+    private var labelText: String {
+        planIncluded ? "参考：\(mode.title)" : "参考：\(mode.title) · 无计划"
+    }
+
+    private var modeBinding: Binding<CoachHistoryMode> {
         Binding(
             get: { mode },
             set: { onChange($0) }
+        )
+    }
+
+    private var planIncludedBinding: Binding<Bool> {
+        Binding(
+            get: { planIncluded },
+            set: { onPlanIncludedChange($0) }
         )
     }
 }

@@ -16,7 +16,8 @@ enum CoachPrompt {
 
     /// 用户消息：上下文前缀在前，本人问句在后（规格 8 要求拼在前缀里）。
     /// 抽成函数是为了让联调用例能断言「发出去的确实是拼好的这份」。
+    /// 前缀被用户全关时是空串，消息就只剩问句，不留前导空行。
     static func userMessage(context: CoachContext, question: String) -> String {
-        [context.prefix, question].joined(separator: "\n\n")
+        [context.prefix, question].filter { !$0.isEmpty }.joined(separator: "\n\n")
     }
 }

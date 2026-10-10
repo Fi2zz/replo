@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// 教练页：先填 Moonshot API Key 与模型，再问。问句按用户选择的档位带训练上下文（默认最近 7 天）。
+/// 教练页：先填 Moonshot API Key 与模型，再问。上下文内容用户可选：历史档位（默认最近 7 天）与计划/今天安排。
 struct ChatView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(RuntimeStore.self) private var runtime
@@ -18,6 +18,7 @@ struct ChatView: View {
     @State private var isShowingSettings = false
     @State private var isShowingHistory = false
     @State private var historyMode: CoachHistoryMode = .lastWeek
+    @State private var planIncluded = true
 
     var body: some View {
         NavigationStack {
@@ -29,7 +30,12 @@ struct ChatView: View {
                     isSending: store?.isSending ?? false
                 )
                 ChatFailureBanner(failure: store?.failure, onDismiss: { store?.dismissFailure() })
-                HistoryModeChip(mode: historyMode, onChange: pickHistoryMode)
+                HistoryModeChip(
+                    mode: historyMode,
+                    planIncluded: planIncluded,
+                    onChange: pickHistoryMode,
+                    onPlanIncludedChange: pickPlanIncluded
+                )
                 ChatComposer(
                     text: $draft,
                     isSending: store?.isSending ?? false,
@@ -67,6 +73,7 @@ struct ChatView: View {
                     onClear: { clearKey() },
                     onModelChange: { pick($0) },
                     onHistoryModeChange: { pickHistoryMode($0) },
+                    onPlanIncludedChange: { pickPlanIncluded($0) },
                     onReboot: { runtime.restart() }
                 )
             }
@@ -145,11 +152,19 @@ struct ChatView: View {
         store?.update(context: currentContext)
     }
 
+    /// 开关「当前计划与今天安排」：同档位，落盘 + 立刻重拼上下文。
+    private func pickPlanIncluded(_ included: Bool) {
+        planIncluded = included
+        CoachPlanReferenceStore.savePlanIncluded(included)
+        store?.update(context: currentContext)
+    }
+
     // MARK: - 组装
 
     private func prepare() {
         runtime.start()
         historyMode = CoachHistoryModeStore.selected()
+        planIncluded = CoachPlanReferenceStore.planIncluded()
         if let store {
             store.update(context: currentContext)
         } else {
@@ -172,7 +187,8 @@ struct ChatView: View {
             activePlan: activePlans.first { $0.active } ?? activePlans.first,
             templates: templates,
             today: Date(),
-            historyMode: historyMode
+            historyMode: historyMode,
+            includePlan: planIncluded
         )
     }
 

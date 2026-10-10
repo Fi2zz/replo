@@ -22,7 +22,7 @@ Replo 是把「回线计划」训练体系代码化的自用工具。核心不�
 - AB 日长期模板（计划收官后切换）
 - 训练课流程：今日课程 → 组间计时 → 练完复盘（完成组数/余力/不适/RPE）→ 下次重量决策
 - 加重规则引擎（本文档第 5 节，产品的核心）
-- WOD 库（8 个内置）+ 三种格式计时器（EMOM/AMRAP/For Time，时间封顶）
+- WOD 库（8 个内置 + 用户自建）+ 三种格式计时器（EMOM/AMRAP/For Time，时间封顶）
 - 日历（一力一有节律：力量/低强度有氧/高强度有氧/全休）
 - 体重记录（周平均 + 目标区间 68-71kg 可视化）
 - Kimi 对话教练（v1 内置）
@@ -80,10 +80,12 @@ Replo 是把「回线计划」训练体系代码化的自用工具。核心不�
 - sessionLogId, movementId, currentWeight, nextWeight,
   action: enum { add, repeat, deload }, reasons: [String]
 
-### 4.6 Wod（WOD 定义，种子数据，只读）
+### 4.6 Wod（WOD 定义；内置种子只读，用户可自建）
 - id, name, format: enum { amrap, emom, forTime, chipper },
-  timeCapSeconds: Int, stations: [Station]
+  timeCapSeconds: Int, stations: [Station], isCustom: Bool
   - Station: description, reps: Int?（seconds 型 Station 用 durationSeconds）
+- 内置 8 个种子（isCustom = false）只读；用户自建的（isCustom = true）
+  可在 WOD 库新建、编辑、删除，手册的三条硬规则不强制，只做结构校验
 
 ### 4.7 WodResult
 - wodId, date, score: String, rpe: Int, nextDaySoreness: String?
@@ -180,9 +182,11 @@ TabView
 - system prompt：内嵌三份文档全文（训练计划 / WOD 手册 / 动作说明）+ 角色设定
   「你是 Repl​​o 的教练，熟悉回线计划全部规则，回答不超过 150 字，先给结论」
 - 上下文注入：发送前把历史 SessionLog（日期/动作/重量/组次/RIR/决策）
-  和当前计划周次拼进 user message 前缀。历史范围用户可选三档：最近 7 天（默认）/
-  仅上次训练（最近一节课，不受 7 天窗口限制）/ 不带历史；
-  设置在教练设置面板与对话页快捷 chip 两处共享（UserDefaults key `replo.coach.historyMode`）
+  和当前计划周次拼进 user message 前缀，两段用户都可关。历史范围三档：
+  最近 7 天（默认）/ 仅上次训练（最近一节课，不受 7 天窗口限制）/ 不带历史；
+  计划与今天安排一个开关（默认带）。两段都关时消息只剩问句。
+  设置在教练设置面板与对话页快捷 chip 两处共享
+  （UserDefaults key `replo.coach.historyMode`、`replo.coach.includePlan`）
 - v1 对话只读，不允许 Kimi 写数据（无工具调用）
 
 ## 9. 实现顺序

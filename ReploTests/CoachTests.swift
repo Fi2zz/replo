@@ -119,6 +119,43 @@ struct CoachPromptTests {
         #expect(context.prefix.contains("深蹲") == false)
     }
 
+    @Test("关掉计划与今天：前缀只剩历史记录段")
+    func planExcludedDropsPlanLines() throws {
+        let context = CoachContext(
+            weekIndex: 1,
+            templateName: "4周重建 v2",
+            planIncluded: false,
+            recentSessions: [
+                CoachContext.SessionSummary(
+                    date: try #require(date(2026, 9, 21)),
+                    dayType: .dayB,
+                    lines: ["- 深蹲：完成 3/3 组"]
+                ),
+            ],
+            todayNote: "今天"
+        )
+
+        #expect(context.prefix.contains("【当前计划】") == false)
+        #expect(context.prefix.contains("【今天】") == false)
+        #expect(context.prefix.contains("【最近 7 天训练记录】"))
+        #expect(context.prefix.contains("深蹲"))
+    }
+
+    @Test("两段都关掉：前缀为空，用户消息只剩问句")
+    func everythingOffLeavesBareQuestion() {
+        let context = CoachContext(
+            weekIndex: 0,
+            templateName: "4周重建 v2",
+            historyMode: .none,
+            planIncluded: false,
+            recentSessions: [],
+            todayNote: "今天"
+        )
+
+        #expect(context.prefix.isEmpty)
+        #expect(CoachPrompt.userMessage(context: context, question: "随便聊聊") == "随便聊聊")
+    }
+
     @Test("周次显示成第 N+1 周，存储是 0 起")
     func weekIndexIsOneBasedForDisplay() {
         let context = CoachContext(weekIndex: 3, templateName: "AB 常模", recentSessions: [], todayNote: "")
@@ -295,6 +332,25 @@ struct CoachContextBuilderTests {
         #expect(context.todayNote.contains("B 日"))
     }
 
+    @Test("make 把两个参考开关透传进上下文")
+    func makeCarriesReferenceOptions() throws {
+        let harness = try CoachHarness()
+        let context = CoachContextBuilder.make(
+            logs: [],
+            decisions: [],
+            movements: harness.movements,
+            activePlan: harness.activePlan,
+            templates: harness.templates,
+            today: harness.date(2026, 9, 21),
+            historyMode: .lastSession,
+            includePlan: false
+        )
+
+        #expect(context.historyMode == .lastSession)
+        #expect(context.planIncluded == false)
+        #expect(context.prefix.contains("【当前计划】") == false)
+    }
+
     @Test("用户消息是「上下文前缀 + 本人问句」")
     func userMessageCarriesPrefixAndQuestion() {
         let message = CoachPrompt.userMessage(context: .sample, question: "今天练什么")
@@ -363,6 +419,17 @@ struct CoachHistoryModeStoreTests {
         defaults.set("everything", forKey: CoachHistoryModeStore.defaultsKey)
 
         #expect(CoachHistoryModeStore.selected(in: defaults) == .lastWeek)
+    }
+
+    @Test("计划开关没设过默认带，关过之后记得住")
+    func planIncludedPersists() throws {
+        let defaults = try isolated()
+
+        #expect(CoachPlanReferenceStore.planIncluded(in: defaults), "没设过默认带")
+
+        CoachPlanReferenceStore.savePlanIncluded(false, to: defaults)
+        #expect(CoachPlanReferenceStore.planIncluded(in: defaults) == false)
+        #expect(CoachPlanReferenceStore.planIncluded(in: try isolated()), "另一个域不受影响")
     }
 
     private func isolated() throws -> UserDefaults {

@@ -65,3 +65,17 @@ enum CoachHistoryModeStore {
         defaults.set(mode.rawValue, forKey: defaultsKey)
     }
 }
+
+/// 「当前计划与今天安排」是否进上下文的持久化，默认带。与历史档位同属参考范围设置。
+enum CoachPlanReferenceStore {
+    static let defaultsKey = "replo.coach.includePlan"
+
+    /// 没设过就当带：`object(forKey:)` 未设值时返回 nil，不能用 `bool(forKey:)`（缺省会读出 false）。
+    static func planIncluded(in defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: defaultsKey) as? Bool ?? true
+    }
+
+    static func savePlanIncluded(_ included: Bool, to defaults: UserDefaults = .standard) {
+        defaults.set(included, forKey: defaultsKey)
+    }
+}

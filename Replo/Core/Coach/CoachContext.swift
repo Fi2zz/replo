@@ -1,7 +1,7 @@
 import Foundation
 
 /// 每次提问前拼在 user message 前缀里的训练上下文（规格 8）：
-/// 按用户选择的档位（默认最近 7 天）取 SessionLog 与对应决策，外加当前计划周次。
+/// 当前计划周次与今天安排、按档位取的历史 SessionLog 与对应决策，两段都可由用户关掉。
 ///
 /// 纯函数，不查库：调用方把数据取过来，这里只负责排版。教练只能看到这里的东西，
 /// 所以宁可多给也不要漏——它不知道 App 里还有什么。
@@ -10,6 +10,8 @@ struct CoachContext: Equatable {
     var templateName: String
     /// 本次参考的历史范围档位。
     var historyMode: CoachHistoryMode = .lastWeek
+    /// 当前计划与今天安排是否进前缀。
+    var planIncluded: Bool = true
     /// 档位窗口内的训练课，从早到晚。
     var recentSessions: [SessionSummary]
     /// 今天该练什么，一句话。
@@ -21,11 +23,13 @@ struct CoachContext: Equatable {
         var lines: [String]
     }
 
-    /// 拼成发出去的前缀。
+    /// 拼成发出去的前缀。两段都可关：计划/今天和历史记录都不带时前缀为空串。
     var prefix: String {
         var lines: [String] = []
-        lines.append("【当前计划】\(templateName) 第 \(weekIndex + 1) 周")
-        lines.append("【今天】\(todayNote)")
+        if planIncluded {
+            lines.append("【当前计划】\(templateName) 第 \(weekIndex + 1) 周")
+            lines.append("【今天】\(todayNote)")
+        }
         if historyMode != .none {
             lines.append("【\(historyMode.sectionTitle)】")
             lines.append(contentsOf: recentSessions.map(summaryText))
@@ -54,7 +58,8 @@ enum CoachContextBuilder {
         activePlan: ActivePlan?,
         templates: [PlanTemplate],
         today: Date,
-        historyMode: CoachHistoryMode = .lastWeek
+        historyMode: CoachHistoryMode = .lastWeek,
+        includePlan: Bool = true
     ) -> CoachContext {
         let planContext = PlanContext(activePlan: activePlan, templates: templates, movements: movements)
         let today_ = planContext.plan(on: today)
@@ -62,6 +67,7 @@ enum CoachContextBuilder {
             weekIndex: today_.weekIndex,
             templateName: templateName(activePlan: activePlan, templates: templates),
             historyMode: historyMode,
+            planIncluded: includePlan,
             recentSessions: recent(
                 logs: logs, decisions: decisions, movements: movements, today: today, historyMode: historyMode
             ),
