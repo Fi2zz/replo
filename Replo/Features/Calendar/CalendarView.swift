@@ -10,6 +10,9 @@ struct CalendarView: View {
     @State private var month = Date()
     @State private var selectedDate = Date()
     @State private var failure: String?
+    @State private var dragOffset: CGFloat = 0
+    @State private var gridWidth: CGFloat = 0
+    @State private var sliding = false
 
     var body: some View {
         NavigationStack {
@@ -42,7 +45,7 @@ struct CalendarView: View {
     private var monthHeader: some View {
         HStack {
             Button {
-                shiftMonth(by: -1)
+                slideMonth(by: -1)
             } label: {
                 Image(systemName: "chevron.left")
             }
@@ -51,7 +54,7 @@ struct CalendarView: View {
                 .font(.headline)
             Spacer()
             Button {
-                shiftMonth(by: 1)
+                slideMonth(by: 1)
             } label: {
                 Image(systemName: "chevron.right")
             }
@@ -80,6 +83,8 @@ struct CalendarView: View {
                 .buttonStyle(.plain)
             }
         }
+        .offset(x: dragOffset)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { gridWidth = $0 }
     }
 
     private var legend: some View {
@@ -123,15 +128,58 @@ struct CalendarView: View {
 
     // MARK: - 动作
 
-    /// 左右滑切月：横向为主的拖动才算，竖向滚动留给 ScrollView。
+    /// 跟手滑切月：横向为主的拖动才让格子跟手，竖向滚动留给 ScrollView；
     /// simultaneousGesture 保证点格子选日和整页滚动都不受影响。
     private var monthSwipe: some Gesture {
-        DragGesture(minimumDistance: 24)
-            .onEnded { value in
-                let width = value.translation.width
-                guard abs(width) > abs(value.translation.height) else { return }
-                shiftMonth(by: width < 0 ? 1 : -1)
+        DragGesture(minimumDistance: 16)
+            .onChanged { value in
+                guard !sliding, horizontal(value.translation) else { return }
+                dragOffset = value.translation.width
             }
+            .onEnded { value in
+                guard !sliding else { return }
+                guard horizontal(value.translation),
+                      abs(value.predictedEndTranslation.width) > gridWidth / 4 else {
+                    withAnimation(.spring(duration: 0.25)) { dragOffset = 0 }
+                    return
+                }
+                slideMonth(by: value.translation.width < 0 ? 1 : -1)
+            }
+    }
+
+    /// 跟手滑出 → 无动画换月 → 新月份从另一侧滑入。箭头按钮也走这条路，两种切法同一种动效。
+    private func slideMonth(by step: Int) {
+        guard !sliding else { return }
+        guard gridWidth > 0 else {
+            shiftMonth(by: step)
+            return
+        }
+        sliding = true
+        let exit = CGFloat(-step) * gridWidth
+        withAnimation(.easeOut(duration: 0.18)) {
+            dragOffset = exit
+        } completion: {
+            swapMonth(by: step, from: exit)
+        }
+    }
+
+    /// 滑出到位后瞬间换月并从另一侧进场；走完才放下一次滑动的闸，避免连滑记两次。
+    private func swapMonth(by step: Int, from exit: CGFloat) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            shiftMonth(by: step)
+            dragOffset = -exit
+        }
+        withAnimation(.easeOut(duration: 0.22)) {
+            dragOffset = 0
+        } completion: {
+            sliding = false
+        }
+    }
+
+    private func horizontal(_ translation: CGSize) -> Bool {
+        abs(translation.width) > abs(translation.height)
     }
 
     private func shiftMonth(by value: Int) {
