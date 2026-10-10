@@ -12,8 +12,17 @@ struct WodListView: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(wods) { wod in
-                    row(for: wod)
+                Section("间歇") {
+                    NavigationLink {
+                        TabataTimerView()
+                    } label: {
+                        Label("TABATA 计时", systemImage: "timer")
+                    }
+                }
+                Section("WOD 库") {
+                    ForEach(wods) { wod in
+                        row(for: wod)
+                    }
                 }
             }
             .navigationTitle("WOD")
