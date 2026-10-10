@@ -24,8 +24,8 @@ struct HistoryModeChip: View {
                 .padding(.vertical, 5)
                 .background(.quaternary, in: Capsule())
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 20)
+        // 同行右侧是动作条，chip 按内容收宽，不抢占整行。
+        .padding(.leading, 20)
         .padding(.bottom, 6)
     }
 
