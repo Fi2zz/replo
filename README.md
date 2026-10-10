@@ -65,7 +65,7 @@ service `com.fi2zz.replo.moonshot`、account `KIMI_API_KEY`，其余两家同理
 | `kimi-k3` | 1M token | 默认。旗舰，长文档规则跟随更稳 |
 | `kimi-k2.6` | 256K token | 通用备选，更省 |
 
-DeepSeek 预设 `deepseek-flash`（V4.1 Flash，快且省）。预设失效就按服务端返回的报错提示，改
+DeepSeek 预设 `deepseek-flash`（V4.1 Flash，快且省，支持思考模式）。预设失效就按服务端返回的报错提示，改
 `Replo/Core/Runtime/CoachProvider.swift` 一处即可。
 
 规格原稿写的是 `moonshot-v1-8k`，它已不在开放平台的可选列表里（现在给的是
@@ -75,11 +75,12 @@ kimi-k3 / kimi-k2.7-code / kimi-k2.6 这一系），所以按规格「若失效�
 换模型会立刻重新装配。联调时可以 `KIMI_MODEL=kimi-k2.6` 临时顶掉（只对 Kimi 生效），
 设置页会显示被顶掉的状态。
 
-推理档位：K3 支持请求顶层 `reasoning_effort`（`low` / `high` / `max`，官方默认 `max`），
+推理档位：K3 与 DeepSeek 都支持请求顶层 `reasoning_effort`（`low` / `high` / `max`，Kimi 官方默认 `max`），
 这里**默认发 `high`**——教练的活是「先给结论、不超过 150 字」，满档推理收益有限却要等更久。
-**只给 K3 发**：官方文档明说各模型参数不同，K2.6 不一定认这个字段，发过去可能直接报错，
-所以 K2.6 一个多余字段都不带。想试档位用 `KIMI_REASONING_EFFORT=low` 顶掉，认不出的值退回
-默认。设置页的「模型」区块会显示当前档位或「不适用」。
+DeepSeek 另外带思考模式开关 `thinking: {"type": "enabled"}`，思维链增量（`reasoning_content`）复用
+K3 的流式渲染链路（正文未到时，打字指示区先显示思考摘要）。**只给认这些字段的模型发**：K2.6 一个多余
+字段都不带。想试档位用 `KIMI_REASONING_EFFORT=low` 顶掉（只对 Kimi 生效），认不出的值退回默认。
+设置页的「模型」区块会显示当前档位或「不适用」。
 
 ## 联调 LLM（不打真 Moonshot）
 

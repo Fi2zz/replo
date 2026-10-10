@@ -40,13 +40,19 @@ enum CoachLlmConfig {
         overridden("KIMI_MODEL") != nil
     }
 
-    /// 要并进请求体顶层的字段。当前模型不认就返回 nil，一个多余字段都不发。
+    /// 要并进请求体顶层的字段。按当前模型的能力位组，一个多余字段都不发。
     static var requestOptions: [String: JSONValue]? {
-        guard let current = provider.models.first(where: { $0.id == model }),
-              current.acceptsReasoningEffort else {
+        guard let current = provider.models.first(where: { $0.id == model }) else {
             return nil
         }
-        return ["reasoning_effort": .string(reasoningEffort.rawValue)]
+        var options: [String: JSONValue] = [:]
+        if current.acceptsThinkingToggle {
+            options["thinking"] = .object(["type": .string("enabled")])
+        }
+        if current.acceptsReasoningEffort {
+            options["reasoning_effort"] = .string(reasoningEffort.rawValue)
+        }
+        return options.isEmpty ? nil : options
     }
 
     static func openAi() -> OpenAiConfig {
@@ -63,10 +69,10 @@ enum CoachLlmConfig {
     }
 }
 
-/// 推理档位。Kimi K3 支持 `low` / `high` / `max`，官方默认是 `max`。
+/// 推理档位。Kimi K3 与 DeepSeek 都支持 `low` / `high` / `max`，Kimi 官方默认是 `max`。
 ///
 /// 这里的默认取 `high`：教练的活是「先给结论、不超过 150 字」，满档推理对这种
-/// 问法收益有限，却要等更久、花更多 token。其余模型不收这个参数，见
+/// 问法收益有限，却要等更久、花更多 token。认这个参数的模型见
 /// `CoachModel.acceptsReasoningEffort`。
 enum ReasoningEffort: String, CaseIterable, Sendable {
     case low

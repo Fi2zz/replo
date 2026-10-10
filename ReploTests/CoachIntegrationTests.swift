@@ -66,12 +66,18 @@ struct CoachIntegrationTests {
 
         let stream = await runtime.askStream(system: "s", conversation: [], question: "今天练什么")
         var deltas: [String] = []
+        var reasoning: [String] = []
         for try await event in stream {
-            if case .textDelta(let delta) = event { deltas.append(delta) }
+            switch event {
+            case .textDelta(let delta): deltas.append(delta)
+            case .reasoningDelta(let delta): reasoning.append(delta)
+            default: break
+            }
         }
 
         #expect(deltas.count > 1, "要边生成边到，不能一次给完")
         #expect(deltas.joined().contains("（mock）收到了"))
+        #expect(reasoning.joined().contains("理一下思路"), "思考增量也要到（DeepSeek 思考模式同链路）")
     }
 
     @Test("K3 的请求真的带上了 reasoning_effort=high")

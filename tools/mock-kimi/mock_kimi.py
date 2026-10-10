@@ -93,6 +93,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Connection", "close")
         self.end_headers()
 
+        # 思考增量先行：客户端的 reasoning_content 装配也走一遍（DeepSeek 思考模式同链路）。
+        for piece in _chunks("（mock）先理一下思路。"):
+            self._write_chunk({"delta": {"reasoning_content": piece}})
+
         # 按行切片发，模拟真实分片，让客户端的增量装配真的走一遍。
         for line in text.split("\n"):
             for piece in _chunks(line):

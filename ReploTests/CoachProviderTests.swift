@@ -94,19 +94,21 @@ struct CoachProviderTests {
         #expect(CoachLlmConfig.isModelOverridden == false)
     }
 
-    @Test("K3 带 reasoning_effort=high；K2.6 与 DeepSeek 一个多余字段都不发")
-    func requestOptionsOnlyForK3() throws {
+    @Test("K3 带 reasoning_effort=high；K2.6 不发；DeepSeek 带思考开关与档位")
+    func requestOptionsPerModel() throws {
         let restore = pinProvider(.kimi)
         defer { restore() }
         setenv("KIMI_MODEL", "kimi-k3", 1)
         #expect(CoachLlmConfig.requestOptions?["reasoning_effort"]?.stringValue == "high")
+        #expect(CoachLlmConfig.requestOptions?["thinking"] == nil, "不往 Kimi 发 DeepSeek 的开关")
 
         setenv("KIMI_MODEL", "kimi-k2.6", 1)
         #expect(CoachLlmConfig.requestOptions == nil)
         unsetenv("KIMI_MODEL")
 
         CoachProviderStore.save(.deepseek)
-        #expect(CoachLlmConfig.requestOptions == nil, "DeepSeek 的模型不认 reasoning_effort")
+        #expect(CoachLlmConfig.requestOptions?["thinking"]?["type"]?.stringValue == "enabled")
+        #expect(CoachLlmConfig.requestOptions?["reasoning_effort"]?.stringValue == "high")
     }
 
     @Test("档位可以临时顶掉，认不出的值退回默认")

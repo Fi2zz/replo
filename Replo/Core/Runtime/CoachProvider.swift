@@ -65,7 +65,13 @@ extension CoachProviderProfile {
         keychainService: "com.fi2zz.replo.deepseek",
         modelDefaultsKey: "replo.deepseek.model",
         models: [
-            CoachModel(id: "deepseek-flash", title: "DeepSeek V4.1 Flash", note: "快且省，原生多模态"),
+            CoachModel(
+                id: "deepseek-flash",
+                title: "DeepSeek V4.1 Flash",
+                note: "快且省，原生多模态，支持思考模式",
+                acceptsReasoningEffort: true,
+                acceptsThinkingToggle: true
+            ),
         ]
     )
 }
@@ -79,6 +85,8 @@ struct CoachModel: Hashable, Identifiable, Sendable {
     /// 能不能收请求顶层的 `reasoning_effort`。官方文档明说各模型参数配置不同，
     /// 不认这个字段的模型一个多余字段都不发。
     var acceptsReasoningEffort = false
+    /// 要不要发请求顶层的 `thinking: {"type": "enabled"}`（DeepSeek 思考模式开关）。
+    var acceptsThinkingToggle = false
 }
 
 /// 提供商选择的持久化。不是秘密，放 UserDefaults 就够；API Key 仍然只在钥匙串。
