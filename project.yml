@@ -26,6 +26,9 @@ packages:
     # https 被墙时走 SSH：SPM 底层是 git，靠全局 `insteadOf` 把 https 重写成 ssh。
     url: ssh://git@github.com/Fi2zz/swiftus.git
     exactVersion: "0.1.6"
+  HorizonCalendar:
+    url: ssh://git@github.com/airbnb/HorizonCalendar.git
+    exactVersion: "2.0.0"
 
 targets:
   Replo:
@@ -43,6 +46,8 @@ targets:
         product: SwiftusCredentials
       - package: Swiftus
         product: SwiftusLLM
+      - package: HorizonCalendar
+        product: HorizonCalendar
     info:
       path: Replo/Resources/Info.plist
       properties:

@@ -3,10 +3,11 @@
 回线计划训练体系代码化的自用 iOS App。SwiftUI + SwiftData + CloudKit 私有库同步，
 对话教练（Kimi / DeepSeek 可选）经 [Swiftus](https://github.com/Fi2zz/swiftus) 的 OpenAI 兼容 wire 层调用。
 
-当前状态：**模块 1-6（数据模型与种子、规则引擎与配重、训练课流程、WOD 计时器、日历与体重、对话教练）已交付**，共 183 条用例全绿；
+当前状态：**模块 1-6（数据模型与种子、规则引擎与配重、训练课流程、WOD 计时器、日历与体重、对话教练）已交付**，共 186 条用例全绿；
 模块 7（CloudKit 同步）按 [docs/Replo_v1_实现委托提示词_v2.txt](docs/Replo_v1_实现委托提示词_v2.txt) 的顺序逐个填。
-今日页按周节律显示今天该练什么，力量课可进入「记录 → 复盘 → 决策」三步流程并写入 `SessionLog` + `WeightDecision`。
-Tab 是 今日 / 日历 / WOD / 体重 / 教练 五个。
+日历页月历用 [HorizonCalendar](https://github.com/airbnb/HorizonCalendar) 横向分页滑月，下方内嵌选中日安排（默认今天），
+今天的力量课可进入「记录 → 复盘 → 决策」三步流程并写入 `SessionLog` + `WeightDecision`。
+Tab 是 日历 / WOD / 体重 / 教练 四个。
 
 ## 快速开始
 
