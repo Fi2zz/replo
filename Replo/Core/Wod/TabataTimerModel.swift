@@ -95,11 +95,11 @@ struct TabataTimerModel: Equatable {
     }
 
     /// 提示点优先级：结束 > 跨段 > 进入段末 3 秒。
-    /// 末 3 秒提示只在正好落到剩余 3 秒时发一次；一次大跳直接越过不报。
+    /// 末 3 秒提示按跨区判定：从区外进入剩余 ≤3 秒区即报一次，兼容非整秒 ticker。
     private func cue(from: Int, to: Int) -> Cue {
         if to >= totalSeconds { return .end }
         if segmentOrdinal(at: to) > segmentOrdinal(at: from) { return .segment }
-        if segmentRemaining(at: from) > 3, segmentRemaining(at: to) == 3 { return .finalThree }
+        if segmentRemaining(at: from) > 3, segmentRemaining(at: to) <= 3 { return .finalThree }
         return .none
     }
 }

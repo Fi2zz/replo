@@ -20,7 +20,7 @@ struct TabataTimerModelTests {
 
         #expect(timer.segment == .work)
         #expect(timer.currentRound == 1)
-        #expect(timer.advance(to: 19) == .none)
+        #expect(timer.advance(to: 19) == .finalThree)
         #expect(timer.segmentRemaining == 1)
 
         #expect(timer.advance(to: 20) == .segment)
