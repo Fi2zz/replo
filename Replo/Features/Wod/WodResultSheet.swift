@@ -2,26 +2,26 @@ import SwiftUI
 
 /// 成绩回填：轮数/时间由状态机给出，RPE 与次日感觉由人填（规格 4.7）。
 struct WodResultSheet: View {
-    let wod: Wod
-    let timer: WodTicker
+    let formatTitle: String
+    let scoreText: String
     let onSave: (WodResultDraft) throws -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var draft: WodResultDraft
     @State private var failure: String?
 
-    init(wod: Wod, timer: WodTicker, onSave: @escaping (WodResultDraft) throws -> Void) {
-        self.wod = wod
-        self.timer = timer
+    init(formatTitle: String, scoreText: String, onSave: @escaping (WodResultDraft) throws -> Void) {
+        self.formatTitle = formatTitle
+        self.scoreText = scoreText
         self.onSave = onSave
-        _draft = State(initialValue: WodResultDraft(score: timer.timer.scoreText))
+        _draft = State(initialValue: WodResultDraft(score: scoreText))
     }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("成绩") {
-                    LabeledContent(wod.format.title, value: timer.timer.scoreText)
+                    LabeledContent(formatTitle, value: scoreText)
                     TextField("轮数或时间", text: $draft.score)
                 }
                 Section("体感") {

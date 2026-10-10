@@ -26,7 +26,7 @@ struct WodTimerView: View {
         .navigationTitle(wod.name)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $isRecording) {
-            WodResultSheet(wod: wod, timer: ticker) { result in
+            WodResultSheet(formatTitle: wod.format.title, scoreText: ticker.timer.scoreText) { result in
                 try save(result)
             }
         }
