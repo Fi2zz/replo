@@ -49,7 +49,10 @@ final class TabataTicker {
                 try? await _Concurrency.Task.sleep(for: .milliseconds(200))
                 guard !_Concurrency.Task.isCancelled else { return }
                 self.tick()
-                if self.timer.phase == .finished { self.isRunning = false }
+                if self.timer.phase == .finished {
+                    self.isRunning = false
+                    break
+                }
             }
         }
     }

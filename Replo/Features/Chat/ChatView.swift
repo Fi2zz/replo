@@ -12,11 +12,11 @@ struct ChatView: View {
     @Query private var activePlans: [ActivePlan]
     @Query private var templates: [PlanTemplate]
 
-    @State private var store: ChatStore?
+    @State var store: ChatStore?
     @State private var draft = ""
     @State private var keyFailure: String?
-    @State private var isShowingSettings = false
-    @State private var isShowingHistory = false
+    @State var isShowingSettings = false
+    @State var isShowingHistory = false
     @State private var historyMode: CoachHistoryMode = .lastWeek
     @State private var planIncluded = true
     @State private var selectedMovements: [String] = []
@@ -86,36 +86,9 @@ struct ChatView: View {
         }
     }
 
-    /// 开新会话：干净的一屏，旧的进历史列表。
-    private var newConversationButton: some View {
-        Button {
-            startNewConversation()
-        } label: {
-            Image(systemName: "square.and.pencil")
-        }
-        .disabled(store == nil)
-    }
-
-    private var historyButton: some View {
-        Button {
-            isShowingHistory = true
-        } label: {
-            Image(systemName: "clock.arrow.circlepath")
-        }
-        .disabled(store == nil)
-    }
-
-    private var keyButton: some View {
-        Button {
-            isShowingSettings = true
-        } label: {
-            Image(systemName: "key")
-        }
-    }
-
     // MARK: - 动作
 
-    private func startNewConversation() {
+    func startNewConversation() {
         store?.startNewConversation()
         store?.update(context: currentContext)
         draft = ""

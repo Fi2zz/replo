@@ -54,9 +54,9 @@ struct TabataTimerView: View {
 
     private func runningPanel(_ ticker: TabataTicker) -> some View {
         VStack(spacing: 16) {
-            Text(ticker.timer.segment.title)
+            Text(segmentTitle(ticker.timer))
                 .font(.title2.weight(.bold))
-                .foregroundStyle(ticker.timer.segment == .work ? Color.green : Color.orange)
+                .foregroundStyle(segmentColor(ticker.timer))
             Text(segmentClock(ticker.timer))
                 .font(.system(size: 64, weight: .semibold, design: .rounded))
                 .monospacedDigit()
@@ -65,6 +65,17 @@ struct TabataTimerView: View {
                 .foregroundStyle(.secondary)
             transport(ticker)
         }
+    }
+
+    /// 大字区：跑完显示「完成」，否则当前段名；跑完后 segment 回绕到 work，不能直接用它。
+    private func segmentTitle(_ timer: TabataTimerModel) -> String {
+        guard timer.phase != .finished else { return "完成" }
+        return timer.segment.title
+    }
+
+    private func segmentColor(_ timer: TabataTimerModel) -> Color {
+        guard timer.phase != .finished else { return .primary }
+        return timer.segment == .work ? Color.green : Color.orange
     }
 
     private func transport(_ ticker: TabataTicker) -> some View {
@@ -115,6 +126,7 @@ struct TabataTimerView: View {
     }
 
     private func segmentClock(_ timer: TabataTimerModel) -> String {
-        String(format: "%d:%02d", timer.segmentRemaining / 60, timer.segmentRemaining % 60)
+        guard timer.phase != .finished else { return "0:00" }
+        return String(format: "%d:%02d", timer.segmentRemaining / 60, timer.segmentRemaining % 60)
     }
 }
