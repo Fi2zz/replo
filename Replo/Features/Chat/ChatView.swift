@@ -19,6 +19,8 @@ struct ChatView: View {
     @State private var isShowingHistory = false
     @State private var historyMode: CoachHistoryMode = .lastWeek
     @State private var planIncluded = true
+    @State private var selectedMovements: [String] = []
+    @State private var isPickingMovements = false
 
     var body: some View {
         NavigationStack {
@@ -36,6 +38,7 @@ struct ChatView: View {
                     onChange: pickHistoryMode,
                     onPlanIncludedChange: pickPlanIncluded
                 )
+                MovementPickBar(selected: $selectedMovements, isPicking: $isPickingMovements)
                 ChatComposer(
                     text: $draft,
                     isSending: store?.isSending ?? false,
@@ -77,6 +80,9 @@ struct ChatView: View {
                     onReboot: { runtime.restart() }
                 )
             }
+            .sheet(isPresented: $isPickingMovements) {
+                MovementPickerSheet(selected: $selectedMovements)
+            }
         }
     }
 
@@ -117,8 +123,10 @@ struct ChatView: View {
 
     private func send() {
         let text = draft
+        let movements = selectedMovements
         draft = ""
-        _Concurrency.Task { await store?.send(text) }
+        selectedMovements = []
+        _Concurrency.Task { await store?.send(text, movements: movements) }
     }
 
     private func saveKey(_ value: String) {
