@@ -162,7 +162,7 @@ docs/               规格与接入文档
 ## 网络备注
 
 本机 `https://github.com` 不通、SSH 通，所以 `project.yml` 里 Swiftus 走
-`ssh://git@github.com/Fi2zz/swiftus.git`（tag `v0.1.0`，含间接依赖 Yams）。
+`ssh://git@github.com/Fi2zz/swiftus.git`（tag `v0.1.6`，含间接依赖 Yams）。
 已在本机 git 全局配了一条重写，让 SPM 克隆 https 源时也走 SSH：
 
 ```bash
