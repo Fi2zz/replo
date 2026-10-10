@@ -50,26 +50,33 @@ struct TabataTimerView: View {
     // MARK: - 动作填写
 
     /// 自由文本动作列表：想填几个填几个，只剩一行时不给删除，免得把列表清空后无从下手。
+    /// 行做成大圆角卡片（接近 iOS 分组表单的行高），保证输入区一眼可见、随手能点中。
     private var movementEditor: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(spacing: 10) {
             ForEach(movements.indices, id: \.self) { index in
                 movementRow(index)
             }
-            Button("添加动作", systemImage: "plus.circle") { movements.append("") }
-                .labelStyle(.titleAndIcon)
-                .font(.callout)
+            Button("添加动作", systemImage: "plus") { movements.append("") }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .frame(maxWidth: .infinity)
         }
     }
 
     private func movementRow(_ index: Int) -> some View {
-        HStack {
+        HStack(spacing: 8) {
             TextField("动作 \(index + 1)", text: $movements[index])
+                .font(.body)
             if movements.count > 1 {
-                Button("删除", systemImage: "minus.circle") { movements.remove(at: index) }
+                Button("删除", systemImage: "minus.circle.fill") { movements.remove(at: index) }
                     .labelStyle(.iconOnly)
+                    .font(.title3)
                     .foregroundStyle(.secondary)
             }
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 12))
     }
 
     /// 留空行不参与计时和存档。
