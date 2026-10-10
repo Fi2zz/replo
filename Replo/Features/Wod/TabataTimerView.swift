@@ -45,6 +45,7 @@ struct TabataTimerView: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .frame(maxWidth: .infinity)
+                    .disabled(!readyToStart)
             }
         }
     }
@@ -77,7 +78,12 @@ struct TabataTimerView: View {
         .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 12))
     }
 
-    /// 留空行不参与计时和存档。
+    /// 没有动作、或任何一行动作为空白时，不允许开始。
+    private var readyToStart: Bool {
+        !movements.isEmpty && movements.allSatisfy { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
+    /// 去空白后的动作名，用于轮换显示和存档。
     private var filledMovements: [String] {
         movements
             .map { $0.trimmingCharacters(in: .whitespaces) }
