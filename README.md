@@ -16,8 +16,10 @@ make test          # 模拟器上跑全部用例
 make run           # 编译 → 装到已连接的手机 → 启动
 ```
 
-也可以手动来：`make generate`（等价于 `xcodegen generate`）后 `open Replo.xcodeproj`。
+也可以手动来：`make generate` 后 `open Replo.xcodeproj`。`make generate` 在工程无变化时跳过重新生成
+（`project.yml` 或源码文件清单变了才会重跑），免得重生成冲掉 Xcode 里的状态。
 `.xcodeproj` 是生成物，不入库；改工程配置只改 `project.yml` 后重新生成。
+签名团队在首次生成时写进 `project.local.yml`（本机专属、不入库），重新生成也丢不了签名。
 
 ## 装到手机上
 

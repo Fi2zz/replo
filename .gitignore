@@ -75,3 +75,6 @@ fastlane/test_output
 
 # 本机专属的 Makefile 变量（DEVELOPMENT_TEAM / DEVICE）
 local.mk
+
+# 本机专属的 XcodeGen 配置（签名团队），重新生成工程也丢不了签名
+project.local.yml

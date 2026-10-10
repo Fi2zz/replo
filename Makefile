@@ -33,6 +33,9 @@ MOCK_URL  ?= http://127.0.0.1:$(MOCK_PORT)/v1
 # 本机专属配置（DEVELOPMENT_TEAM、DEVICE 等），不存在也不影响 make help / test。
 -include local.mk
 
+# XcodeGen 的本机专属配置（目前只有签名团队），gitignore，重新生成工程也丢不了签名。
+TEAM_YML := project.local.yml
+
 # 没写死就问钥匙串要第一个开发签名身份的 Team ID（形如 9WEANLD96Z）。
 # 写法上避开圆括号：$(shell) 里出现裸的右括号会把调用提前截断。
 IDENTITY_TEAM := $(shell security find-identity -v -p codesigning 2>/dev/null \
@@ -58,8 +61,24 @@ help: ## 列出所有目标
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 
-generate: ## project.yml → Replo.xcodeproj
-	@xcodegen generate
+generate: $(TEAM_YML) ## project.yml → Replo.xcodeproj（工程无变化时跳过，免得重生成冲掉 Xcode 里的状态）
+	@mkdir -p .build
+	@{ shasum project.yml $(TEAM_YML); find Replo ReploTests -type f | sort; } > .build/manifest.new
+	@if [ -f $(SCHEME).xcodeproj/project.pbxproj ] && cmp -s .build/manifest.new .build/manifest.cur; then \
+		echo '工程无变化，跳过 xcodegen（要强制重建：rm -rf Replo.xcodeproj 后再跑）'; \
+	else \
+		xcodegen generate && mv .build/manifest.new .build/manifest.cur; \
+	fi
+
+# 首次生成时把自动推断到的签名团队写进去；推断不到就留个注释模板。
+$(TEAM_YML):
+	@if [ -n '$(DEVELOPMENT_TEAM)' ]; then \
+		printf 'targets:\n  Replo:\n    settings:\n      base:\n        DEVELOPMENT_TEAM: %s\n' '$(DEVELOPMENT_TEAM)' > $(TEAM_YML); \
+		echo '已把签名团队 $(DEVELOPMENT_TEAM) 写进 $(TEAM_YML)（不进仓库）'; \
+	else \
+		printf '# 本机专属 XcodeGen 配置（不进仓库）：签名团队写这里，重新生成工程也丢不了\n# targets:\n#   Replo:\n#     settings:\n#       base:\n#         DEVELOPMENT_TEAM: XXXXXXXXXX\n{}\n' > $(TEAM_YML); \
+		echo '已生成 $(TEAM_YML) 模板，建议填入签名团队'; \
+	fi
 
 build: generate ## 编译到模拟器用的 .app
 	@xcodebuild build \
