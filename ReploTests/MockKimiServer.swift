@@ -27,7 +27,7 @@ enum MockKimiServer {
     }
 
     /// 装配按 `.standard` 里选的提供商走；联调固定钉在 kimi，跑完还原，
-    /// 免得在模拟器里切过豆包/DeepSeek 之后用例去撞真端点。
+    /// 免得在模拟器里切过 DeepSeek 之后用例去撞真端点。
     static func pinKimiProvider() -> () -> Void {
         let previous = UserDefaults.standard.string(forKey: CoachProviderStore.defaultsKey)
         CoachProviderStore.save(.kimi)

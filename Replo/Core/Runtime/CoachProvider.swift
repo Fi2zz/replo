@@ -4,16 +4,14 @@ import Foundation
 /// `OpenAiCompatibleProvider`，差异全部收敛在 `profile` 这张表里。
 enum CoachProvider: String, CaseIterable, Identifiable, Sendable {
     case kimi
-    case doubao
     case deepseek
 
     var id: String { rawValue }
 
-    // REASON: 静态映射表 —— 提供商元数据天然是一张表，一处说清三家差异，比散开的 switch 易读。
+    // REASON: 静态映射表 —— 提供商元数据天然是一张表，一处说清两家差异，比散开的 switch 易读。
     var profile: CoachProviderProfile {
         switch self {
         case .kimi: .kimi
-        case .doubao: .doubao
         case .deepseek: .deepseek
         }
     }
@@ -59,21 +57,6 @@ extension CoachProviderProfile {
         ]
     )
 
-    /// 方舟模型 ID 参照官方模型列表（volcengine.com/docs/82379/1554679）；
-    /// 失效就按服务端返回的报错提示，改这里即可。
-    static let doubao = CoachProviderProfile(
-        title: "豆包（火山方舟）",
-        keyConsoleHint: "去火山方舟控制台的「API Key 管理」拿一把，并在「开通管理」里开通所选模型。",
-        defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/v3",
-        credentialKey: "DOUBAO_API_KEY",
-        keychainService: "com.fi2zz.replo.doubao",
-        modelDefaultsKey: "replo.doubao.model",
-        models: [
-            CoachModel(id: "doubao-seed-1-6-250615", title: "Doubao Seed 1.6", note: "旗舰，256K 上下文，需在方舟控制台开通"),
-            CoachModel(id: "doubao-seed-1-6-flash-250828", title: "Doubao Seed 1.6 Flash", note: "轻快省钱，日常问答够用"),
-        ]
-    )
-
     static let deepseek = CoachProviderProfile(
         title: "DeepSeek",
         keyConsoleHint: "去 platform.deepseek.com 的「API keys」拿一把。",
@@ -82,8 +65,7 @@ extension CoachProviderProfile {
         keychainService: "com.fi2zz.replo.deepseek",
         modelDefaultsKey: "replo.deepseek.model",
         models: [
-            CoachModel(id: "deepseek-chat", title: "DeepSeek Chat", note: "V3.2 非思考模式，快且省"),
-            CoachModel(id: "deepseek-reasoner", title: "DeepSeek Reasoner", note: "思考型，先推一遍再答，更慢更贵"),
+            CoachModel(id: "deepseek-flash", title: "DeepSeek V4.1 Flash", note: "快且省，原生多模态"),
         ]
     )
 }

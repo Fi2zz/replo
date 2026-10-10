@@ -5,9 +5,9 @@ import Testing
 
 @Suite("提供商与模型选择", .serialized)
 struct CoachProviderTests {
-    @Test("提供商就三家：Kimi、豆包、DeepSeek")
-    func offersThreeProviders() {
-        #expect(CoachProvider.allCases == [.kimi, .doubao, .deepseek])
+    @Test("提供商就两家：Kimi 与 DeepSeek")
+    func offersTwoProviders() {
+        #expect(CoachProvider.allCases == [.kimi, .deepseek])
     }
 
     @Test("没选过的时候用 Kimi")
@@ -27,24 +27,22 @@ struct CoachProviderTests {
         #expect(CoachProviderStore.selected(in: defaults) == .kimi)
     }
 
-    @Test("三家预设模型清单：防手滑改错 ID")
+    @Test("两家预设模型清单：防手滑改错 ID")
     func modelCatalog() {
         #expect(CoachProvider.kimi.models.map(\.id) == ["kimi-k3", "kimi-k2.6"])
-        #expect(CoachProvider.doubao.models.map(\.id) == ["doubao-seed-1-6-250615", "doubao-seed-1-6-flash-250828"])
-        #expect(CoachProvider.deepseek.models.map(\.id) == ["deepseek-chat", "deepseek-reasoner"])
+        #expect(CoachProvider.deepseek.models.map(\.id) == ["deepseek-flash"])
     }
 
     @Test("每个提供商各自记模型，互不干扰")
     func modelSelectionPerProvider() throws {
         let defaults = try isolated()
         #expect(CoachModelStore.selected(provider: .kimi, in: defaults).id == "kimi-k3")
-        #expect(CoachModelStore.selected(provider: .doubao, in: defaults).id == "doubao-seed-1-6-250615")
-        #expect(CoachModelStore.selected(provider: .deepseek, in: defaults).id == "deepseek-chat")
+        #expect(CoachModelStore.selected(provider: .deepseek, in: defaults).id == "deepseek-flash")
 
         CoachModelStore.save(CoachProvider.kimi.models[1], provider: .kimi, to: defaults)
 
         #expect(CoachModelStore.selected(provider: .kimi, in: defaults).id == "kimi-k2.6")
-        #expect(CoachModelStore.selected(provider: .doubao, in: defaults).id == "doubao-seed-1-6-250615", "别家的选择不受影响")
+        #expect(CoachModelStore.selected(provider: .deepseek, in: defaults).id == "deepseek-flash", "别家的选择不受影响")
     }
 
     @Test("kimi 沿用旧键名，升级前存的 kimi-k2.6 还能读出来")
@@ -76,12 +74,12 @@ struct CoachProviderTests {
 
     @Test("选了别家之后 KIMI_MODEL 不生效，免得 mock 通道串到真服务")
     func environmentIgnoredForOtherProviders() throws {
-        let restore = pinProvider(.doubao)
+        let restore = pinProvider(.deepseek)
         defer { restore() }
         setenv("KIMI_MODEL", "kimi-k2.6", 1)
         defer { unsetenv("KIMI_MODEL") }
 
-        #expect(CoachLlmConfig.model == "doubao-seed-1-6-250615")
+        #expect(CoachLlmConfig.model == "deepseek-flash")
         #expect(CoachLlmConfig.isModelOverridden == false)
     }
 
@@ -96,7 +94,7 @@ struct CoachProviderTests {
         #expect(CoachLlmConfig.isModelOverridden == false)
     }
 
-    @Test("K3 带 reasoning_effort=high；K2.6 与豆包、DeepSeek 一个多余字段都不发")
+    @Test("K3 带 reasoning_effort=high；K2.6 与 DeepSeek 一个多余字段都不发")
     func requestOptionsOnlyForK3() throws {
         let restore = pinProvider(.kimi)
         defer { restore() }
@@ -107,8 +105,6 @@ struct CoachProviderTests {
         #expect(CoachLlmConfig.requestOptions == nil)
         unsetenv("KIMI_MODEL")
 
-        CoachProviderStore.save(.doubao)
-        #expect(CoachLlmConfig.requestOptions == nil, "豆包的模型不认 reasoning_effort")
         CoachProviderStore.save(.deepseek)
         #expect(CoachLlmConfig.requestOptions == nil, "DeepSeek 的模型不认 reasoning_effort")
     }

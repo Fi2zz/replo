@@ -1,7 +1,7 @@
 # Replo
 
 回线计划训练体系代码化的自用 iOS App。SwiftUI + SwiftData + CloudKit 私有库同步，
-对话教练（Kimi / 豆包 / DeepSeek 可选）经 [Swiftus](https://github.com/Fi2zz/swiftus) 的 OpenAI 兼容 wire 层调用。
+对话教练（Kimi / DeepSeek 可选）经 [Swiftus](https://github.com/Fi2zz/swiftus) 的 OpenAI 兼容 wire 层调用。
 
 当前状态：**模块 1-6（数据模型与种子、规则引擎与配重、训练课流程、WOD 计时器、日历与体重、对话教练）已交付**，共 183 条用例全绿；
 模块 7（CloudKit 同步）按 [docs/Replo_v1_实现委托提示词_v2.txt](docs/Replo_v1_实现委托提示词_v2.txt) 的顺序逐个填。
@@ -37,7 +37,7 @@ make run           # 编译 → 装到已连接的手机 → 启动
 
 ## 选提供商、填 API Key
 
-打开 App 的「教练」页，点右上角的钥匙图标：先选提供商（Kimi / 豆包（火山方舟）/ DeepSeek），
+打开 App 的「教练」页，点右上角的钥匙图标：先选提供商（Kimi / DeepSeek），
 再在这家自己的 Key 区块里粘贴 `sk-…` 点保存。各家的 Key 分别存钥匙串（Kimi 是
 service `com.fi2zz.replo.moonshot`、account `KIMI_API_KEY`，其余两家同理），不落文件、不进仓库；
 保存后运行时立刻重新装配，状态行应该从「装配失败：缺少凭据」变成「已就绪」。同一页也能清除已保存的 Key。
@@ -65,9 +65,7 @@ service `com.fi2zz.replo.moonshot`、account `KIMI_API_KEY`，其余两家同理
 | `kimi-k3` | 1M token | 默认。旗舰，长文档规则跟随更稳 |
 | `kimi-k2.6` | 256K token | 通用备选，更省 |
 
-豆包预设 `doubao-seed-1-6-250615`（旗舰）与 `doubao-seed-1-6-flash-250828`（轻快省钱），
-需在方舟控制台「开通管理」里开通对应模型；DeepSeek 预设 `deepseek-chat`（非思考）与
-`deepseek-reasoner`（思考型）。预设失效就按服务端返回的报错提示，改
+DeepSeek 预设 `deepseek-flash`（V4.1 Flash，快且省）。预设失效就按服务端返回的报错提示，改
 `Replo/Core/Runtime/CoachProvider.swift` 一处即可。
 
 规格原稿写的是 `moonshot-v1-8k`，它已不在开放平台的可选列表里（现在给的是
@@ -107,7 +105,7 @@ make run-mock-device MOCK_URL=http://192.168.x.x:8099/v1   # 终端 B
 `make lan-ip` 打印 Mac 的局域网地址。真机第一次跑要允许「本地网络」权限弹窗。
 
 App 侧靠环境变量改端点，默认值不动：`KIMI_BASE_URL` / `KIMI_MODEL`，**这条通道只对 Kimi
-生效**（选了豆包 / DeepSeek 时环境变量不顶任何东西，免得 mock 串到真服务）。教练设置页会显示
+生效**（选了 DeepSeek 时环境变量不顶任何东西，免得 mock 串到真服务）。教练设置页会显示
 当前端点，被改过还会挂一条橙色提示，免得以为在跟真 Moonshot 说话。端点被指到本机时，
 钥匙串里没有 Key 会补一把占位 Key（假服务不校验 Key），干净模拟器也能直接跑。
 
