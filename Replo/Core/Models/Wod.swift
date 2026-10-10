@@ -46,7 +46,7 @@ struct Station: Codable, Equatable, Identifiable {
     }
 }
 
-/// WOD 定义。种子数据，只读（规格 4.6）。
+/// WOD 定义。内置种子只读；用户自建的可编辑、可删除，以 `isCustom` 区分（规格 4.6）。
 @Model
 final class Wod {
     var id: UUID = UUID()
@@ -56,6 +56,8 @@ final class Wod {
     /// For Time 的规定轮数；AMRAP 自由轮数、Chipper 清单轮次为 nil。
     var rounds: Int? = nil
     var stations: [Station] = []
+    /// 用户自建为 true；内置种子为 false。
+    var isCustom: Bool = false
 
     init(
         id: UUID = UUID(),
@@ -63,7 +65,8 @@ final class Wod {
         format: WodFormat,
         timeCapSeconds: Int,
         rounds: Int? = nil,
-        stations: [Station] = []
+        stations: [Station] = [],
+        isCustom: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -71,5 +74,6 @@ final class Wod {
         self.timeCapSeconds = timeCapSeconds
         self.rounds = rounds
         self.stations = stations
+        self.isCustom = isCustom
     }
 }
