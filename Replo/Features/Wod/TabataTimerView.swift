@@ -3,10 +3,11 @@ import SwiftUI
 
 /// TABATA 计时页：开场调参数（动作 / 工作 / 休息 / 轮数），计时中显示段与轮次，
 /// 结束记成绩。手册：TABATA 与 WOD 二选一，默认战绳 20 秒 / 10 秒 × 8 轮。
+/// 动作由用户自由填写，数量不限；填了多个时按轮轮换。
 struct TabataTimerView: View {
     @Environment(\.modelContext) private var modelContext
 
-    @State private var movement = WodMovementPool.defaultTabataMovement
+    @State private var movements = [WodMovementPool.defaultTabataMovement]
     @State private var workSeconds = 20
     @State private var restSeconds = 10
     @State private var rounds = 8
@@ -33,21 +34,49 @@ struct TabataTimerView: View {
 
     private var setupPanel: some View {
         VStack(spacing: 16) {
-            Picker("动作", selection: $movement) {
-                ForEach(WodMovementPool.movements) { item in
-                    Text(item.name).tag(item.name)
-                }
-            }
+            movementEditor
             Stepper("工作 \(workSeconds) 秒", value: $workSeconds, in: 5...60)
             Stepper("休息 \(restSeconds) 秒", value: $restSeconds, in: 5...60)
             Stepper("\(rounds) 轮", value: $rounds, in: 1...20)
-            Text("手册默认战绳 20 秒 / 10 秒 × 8 轮；壶铃摆动和跑步机不做 TABATA（伤腰 / 易摔）。")
+            Text("动作自己填，可添加多个，计时按轮轮换。手册默认战绳 20 秒 / 10 秒 × 8 轮；壶铃摆动和跑步机不做 TABATA（伤腰 / 易摔）。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button("开始", action: start)
                 .buttonStyle(.borderedProminent)
         }
+    }
+
+    // MARK: - 动作填写
+
+    /// 自由文本动作列表：想填几个填几个，只剩一行时不给删除，免得把列表清空后无从下手。
+    private var movementEditor: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(movements.indices, id: \.self) { index in
+                movementRow(index)
+            }
+            Button("添加动作", systemImage: "plus.circle") { movements.append("") }
+                .labelStyle(.titleAndIcon)
+                .font(.callout)
+        }
+    }
+
+    private func movementRow(_ index: Int) -> some View {
+        HStack {
+            TextField("动作 \(index + 1)", text: $movements[index])
+            if movements.count > 1 {
+                Button("删除", systemImage: "minus.circle") { movements.remove(at: index) }
+                    .labelStyle(.iconOnly)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// 留空行不参与计时和存档。
+    private var filledMovements: [String] {
+        movements
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
     }
 
     // MARK: - 计时
@@ -60,11 +89,17 @@ struct TabataTimerView: View {
             Text(segmentClock(ticker.timer))
                 .font(.system(size: 64, weight: .semibold, design: .rounded))
                 .monospacedDigit()
-            Text("第 \(ticker.timer.currentRound) / \(ticker.timer.totalRounds) 轮 · \(movement)")
+            Text("第 \(ticker.timer.currentRound) / \(ticker.timer.totalRounds) 轮 · \(currentMovement(for: ticker.timer.currentRound))")
                 .font(.callout)
                 .foregroundStyle(.secondary)
             transport(ticker)
         }
+    }
+
+    /// 多个动作按轮轮换（第 1 轮第一个、第 2 轮第二个……绕圈）；全留空时退回显示「TABATA」。
+    private func currentMovement(for round: Int) -> String {
+        guard !filledMovements.isEmpty else { return "TABATA" }
+        return filledMovements[(round - 1) % filledMovements.count]
     }
 
     /// 大字区：跑完显示「完成」，否则当前段名；跑完后 segment 回绕到 work，不能直接用它。
@@ -112,17 +147,22 @@ struct TabataTimerView: View {
         created.start()
     }
 
-    /// 成绩带上动作名，历史里看得出练的是什么（如「战绳 · 完成 8/8 轮」）。
+    /// 成绩带上动作名，历史里看得出练的是什么（如「战绳 · 完成 8/8 轮」）；多个动作全部列出。
     private func save(_ draft: WodResultDraft) throws {
         let result = WodResult(
             wodId: WodMovementPool.tabataWodID,
             date: Date(),
-            score: "\(movement) · \(draft.score)",
+            score: scoreText(for: draft),
             rpe: draft.rpe,
             nextDaySoreness: draft.soreness.isEmpty ? nil : draft.soreness
         )
         modelContext.insert(result)
         try modelContext.save()
+    }
+
+    private func scoreText(for draft: WodResultDraft) -> String {
+        guard !filledMovements.isEmpty else { return draft.score }
+        return "\(filledMovements.joined(separator: "、")) · \(draft.score)"
     }
 
     private func segmentClock(_ timer: TabataTimerModel) -> String {
