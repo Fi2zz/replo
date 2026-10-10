@@ -3,11 +3,11 @@ import SwiftUI
 
 /// TABATA 计时页：开场调参数（动作 / 工作 / 休息 / 轮数），计时中显示段与轮次，
 /// 结束记成绩。手册：TABATA 与 WOD 二选一，默认战绳 20 秒 / 10 秒 × 8 轮。
-/// 动作由用户自由填写，数量不限；填了多个时按轮轮换。
+/// 动作不内置，用户点「添加动作」自行输入，数量不限；填了多个时按轮轮换。
 struct TabataTimerView: View {
     @Environment(\.modelContext) private var modelContext
 
-    @State private var movements = [WodMovementPool.defaultTabataMovement]
+    @State private var movements: [String] = []
     @State private var workSeconds = 20
     @State private var restSeconds = 10
     @State private var rounds = 8
