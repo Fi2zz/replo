@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// 日历：月视图四色标记，下方跟选中日的安排，默认选中今天（规格 7）。
+/// 日历：月视图四色标记，左右滑或点箭头切月；下方跟选中日的安排，默认选中今天（规格 7）。
 struct CalendarView: View {
     @Environment(\.modelContext) private var context
     @Query private var logs: [SessionLog]
@@ -15,9 +15,12 @@ struct CalendarView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 12) {
-                    monthHeader
-                    weekdayHeader
-                    grid
+                    VStack(spacing: 12) {
+                        monthHeader
+                        weekdayHeader
+                        grid
+                    }
+                    .simultaneousGesture(monthSwipe)
                     legend
                     Divider()
                     DayPlanDetail(date: selectedDate)
@@ -119,6 +122,17 @@ struct CalendarView: View {
     }
 
     // MARK: - 动作
+
+    /// 左右滑切月：横向为主的拖动才算，竖向滚动留给 ScrollView。
+    /// simultaneousGesture 保证点格子选日和整页滚动都不受影响。
+    private var monthSwipe: some Gesture {
+        DragGesture(minimumDistance: 24)
+            .onEnded { value in
+                let width = value.translation.width
+                guard abs(width) > abs(value.translation.height) else { return }
+                shiftMonth(by: width < 0 ? 1 : -1)
+            }
+    }
 
     private func shiftMonth(by value: Int) {
         guard let next = Calendar.current.date(byAdding: .month, value: value, to: month) else { return }

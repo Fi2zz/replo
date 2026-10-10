@@ -161,8 +161,8 @@ struct DecisionInput {
 ```
 TabView
 ├── 日历（CalendarView）
-│   └── 月视图：力量/有氧/体能/全休 四色标记；下方跟选中日安排（默认高亮今天），
-│       力量日可直接开始训练；整页可上下滚动
+│   └── 月视图：力量/有氧/体能/全休 四色标记，左右滑或点箭头切月；
+│       下方跟选中日安排（默认高亮今天），力量日可直接开始训练；整页可上下滚动
 ├── WOD（WodListView → WodTimerView）
 ├── 体重（WeightView：折线 + 周平均 + 目标区间带）
 └── 教练（ChatView：Kimi 对话）
