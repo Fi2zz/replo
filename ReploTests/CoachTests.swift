@@ -376,6 +376,28 @@ struct CoachContextBuilderTests {
         #expect(message.hasSuffix("今天练什么"))
     }
 
+    @Test("选中动作拼在前缀之后、问句之前")
+    func userMessageCarriesMovements() throws {
+        let message = CoachPrompt.userMessage(
+            context: .sample, question: "帮我编个 WOD", movements: ["壶铃摆动", "战绳"]
+        )
+
+        #expect(message.contains("【选中动作】壶铃摆动、战绳"))
+        let plan = try #require(message.range(of: "【当前计划】"))
+        let movement = try #require(message.range(of: "【选中动作】"))
+        let question = try #require(message.range(of: "帮我编个 WOD"))
+        #expect(plan.lowerBound < movement.lowerBound)
+        #expect(movement.lowerBound < question.lowerBound)
+    }
+
+    @Test("不带动作：不出现选中动作段")
+    func userMessageWithoutMovements() {
+        let message = CoachPrompt.userMessage(context: .sample, question: "随便聊聊")
+
+        #expect(message.contains("【选中动作】") == false)
+        #expect(message.hasSuffix("随便聊聊"))
+    }
+
     @Test("运行时没装好就直接说清楚，不假装发出去了")
     func chatStoreWithoutRuntime() async throws {
         let store = ChatStore(modelContext: TestStore.context, runtime: RuntimeStore(), context: .sample)

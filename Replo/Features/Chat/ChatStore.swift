@@ -103,8 +103,8 @@ final class ChatStore {
         failure = nil
     }
 
-    /// 发一句。流式接收：先建一条空的助手消息占位，增量往里填，收完落库。
-    func send(_ question: String) async {
+    /// 发一句。`movements` 是这条消息选中的动作，拼进前缀，发完即弃。流式接收：先建一条空的助手消息占位，增量往里填，收完落库。
+    func send(_ question: String, movements: [String] = []) async {
         let text = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isSending else { return }
         // 先取历史再记录：这一句要拼进前缀，不能同时又当历史发一遍。
@@ -115,7 +115,7 @@ final class ChatStore {
         streamingText = ""
         streamingReasoning = ""
 
-        let task = _Concurrency.Task { await receive(history: history, question: text) }
+        let task = _Concurrency.Task { await receive(history: history, question: text, movements: movements) }
         inFlight = task
         await task.value
         inFlight = nil
@@ -127,13 +127,14 @@ final class ChatStore {
     }
 
     /// 收流：正文增量拼成答案，思考增量单独走，收完写一条助手消息。
-    private func receive(history: [LlmMessage], question: String) async {
+    private func receive(history: [LlmMessage], question: String, movements: [String]) async {
         defer { clearStreamingState() }
         do {
             let stream = try await runtime.askCoachStream(
                 context: context,
                 question: question,
-                conversation: history
+                conversation: history,
+                movements: movements
             )
             try await consume(stream)
             commitAnswer()

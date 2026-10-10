@@ -50,8 +50,8 @@ final class RuntimeStore {
     }
 
     /// 问教练一句。运行时装配失败、Key 缺失都原样抛给界面，不静默吞掉。
-    func askCoach(context: CoachContext, question: String, conversation: [LlmMessage]) async throws -> String {
-        let stream = try await askCoachStream(context: context, question: question, conversation: conversation)
+    func askCoach(context: CoachContext, question: String, conversation: [LlmMessage], movements: [String] = []) async throws -> String {
+        let stream = try await askCoachStream(context: context, question: question, conversation: conversation, movements: movements)
         var answer = ""
         for try await event in stream {
             if case .textDelta(let delta) = event { answer += delta }
@@ -64,7 +64,8 @@ final class RuntimeStore {
     func askCoachStream(
         context: CoachContext,
         question: String,
-        conversation: [LlmMessage]
+        conversation: [LlmMessage],
+        movements: [String] = []
     ) async throws -> AsyncThrowingStream<LlmStreamEvent, Error> {
         guard let runtime else {
             throw RuntimeError.notBootstrapped
@@ -72,7 +73,7 @@ final class RuntimeStore {
         return await runtime.askStream(
             system: CoachPrompt.system(today: Date(), includePlan: context.planIncluded),
             conversation: conversation,
-            question: CoachPrompt.userMessage(context: context, question: question)
+            question: CoachPrompt.userMessage(context: context, question: question, movements: movements)
         )
     }
 
