@@ -179,8 +179,10 @@ TabView
 - 模型端点：https://api.moonshot.cn/v1/chat/completions（以官方文档为准）
 - system prompt：内嵌三份文档全文（训练计划 / WOD 手册 / 动作说明）+ 角色设定
   「你是 Repl​​o 的教练，熟悉回线计划全部规则，回答不超过 150 字，先给结论」
-- 上下文注入：发送前把最近 7 天 SessionLog（日期/动作/重量/组次/RIR/决策）
-  和当前计划周次拼进 user message 前缀
+- 上下文注入：发送前把历史 SessionLog（日期/动作/重量/组次/RIR/决策）
+  和当前计划周次拼进 user message 前缀。历史范围用户可选三档：最近 7 天（默认）/
+  仅上次训练（最近一节课，不受 7 天窗口限制）/ 不带历史；
+  设置在教练设置面板与对话页快捷 chip 两处共享（UserDefaults key `replo.coach.historyMode`）
 - v1 对话只读，不允许 Kimi 写数据（无工具调用）
 
 ## 9. 实现顺序

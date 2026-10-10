@@ -1,14 +1,16 @@
 import Foundation
 
 /// 每次提问前拼在 user message 前缀里的训练上下文（规格 8）：
-/// 最近 7 天的 SessionLog 与对应决策，外加当前计划周次。
+/// 按用户选择的档位（默认最近 7 天）取 SessionLog 与对应决策，外加当前计划周次。
 ///
 /// 纯函数，不查库：调用方把数据取过来，这里只负责排版。教练只能看到这里的东西，
 /// 所以宁可多给也不要漏——它不知道 App 里还有什么。
 struct CoachContext: Equatable {
     var weekIndex: Int
     var templateName: String
-    /// 最近 7 天的训练课，从早到晚。
+    /// 本次参考的历史范围档位。
+    var historyMode: CoachHistoryMode = .lastWeek
+    /// 档位窗口内的训练课，从早到晚。
     var recentSessions: [SessionSummary]
     /// 今天该练什么，一句话。
     var todayNote: String
@@ -24,10 +26,12 @@ struct CoachContext: Equatable {
         var lines: [String] = []
         lines.append("【当前计划】\(templateName) 第 \(weekIndex + 1) 周")
         lines.append("【今天】\(todayNote)")
-        lines.append("【最近 7 天训练记录】")
-        lines.append(contentsOf: recentSessions.map(summaryText))
-        if recentSessions.isEmpty {
-            lines.append("（这 7 天没有训练记录）")
+        if historyMode != .none {
+            lines.append("【\(historyMode.sectionTitle)】")
+            lines.append(contentsOf: recentSessions.map(summaryText))
+            if recentSessions.isEmpty {
+                lines.append(historyMode.emptyText)
+            }
         }
         return lines.joined(separator: "\n")
     }
@@ -42,21 +46,25 @@ struct CoachContext: Equatable {
 /// 从库里取数、组装 `CoachContext`。这是唯一碰 SwiftData 的地方。
 @MainActor
 enum CoachContextBuilder {
-    /// 组一份完整的上下文：当前周次 + 今天 + 最近 7 天。
+    /// 组一份完整的上下文：当前周次 + 今天 + 按档位取的历史记录。
     static func make(
         logs: [SessionLog],
         decisions: [WeightDecision],
         movements: [Movement],
         activePlan: ActivePlan?,
         templates: [PlanTemplate],
-        today: Date
+        today: Date,
+        historyMode: CoachHistoryMode = .lastWeek
     ) -> CoachContext {
         let planContext = PlanContext(activePlan: activePlan, templates: templates, movements: movements)
         let today_ = planContext.plan(on: today)
         return CoachContext(
             weekIndex: today_.weekIndex,
             templateName: templateName(activePlan: activePlan, templates: templates),
-            recentSessions: recent(logs: logs, decisions: decisions, movements: movements, today: today),
+            historyMode: historyMode,
+            recentSessions: recent(
+                logs: logs, decisions: decisions, movements: movements, today: today, historyMode: historyMode
+            ),
             todayNote: "\(DateFormat.monthDayText(today)) \(DateFormat.weekdayText(today)) · \(today_.title)｜\(today_.note)"
         )
     }
@@ -66,19 +74,18 @@ enum CoachContextBuilder {
         return templates.first { $0.id == id }?.name ?? "计划已丢失"
     }
 
-    /// 最近 7 天的训练课（含今天）。决策按 sessionLogId 对上，缺了就只报完成度。
+    /// 档位窗口内的训练课（含今天）。决策按 sessionLogId 对上，缺了就只报完成度。
     static func recent(
         logs: [SessionLog],
         decisions: [WeightDecision],
         movements: [Movement],
-        today: Date
+        today: Date,
+        historyMode: CoachHistoryMode = .lastWeek
     ) -> [CoachContext.SessionSummary] {
-        let window = today.addingTimeInterval(-7 * 86_400)
         let byLog = Dictionary(grouping: decisions, by: \.sessionLogId)
         let names = Dictionary(uniqueKeysWithValues: movements.map { ($0.id, $0.name) })
 
-        return logs
-            .filter { $0.date >= window && $0.date <= today }
+        return scoped(logs: logs, today: today, historyMode: historyMode)
             .sorted { $0.date < $1.date }
             .map { log in
                 CoachContext.SessionSummary(
@@ -87,6 +94,16 @@ enum CoachContextBuilder {
                     lines: log.entries.map { line(for: $0, names: names, decisions: byLog[log.id] ?? []) }
                 )
             }
+    }
+
+    /// 按档位圈出候选课：默认 7 天窗口；仅上次训练取最近一节，不管多早；不带历史直接空。
+    private static func scoped(logs: [SessionLog], today: Date, historyMode: CoachHistoryMode) -> [SessionLog] {
+        if historyMode == .none { return [] }
+        if historyMode == .lastSession {
+            return logs.filter { $0.date <= today }.max(by: { $0.date < $1.date }).map { [$0] } ?? []
+        }
+        let window = today.addingTimeInterval(-7 * 86_400)
+        return logs.filter { $0.date >= window && $0.date <= today }
     }
 
     private static func line(

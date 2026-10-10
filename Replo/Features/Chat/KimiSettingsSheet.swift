@@ -8,11 +8,13 @@ struct KimiSettingsSheet: View {
     let onSave: (String) -> Void
     let onClear: () -> Void
     let onModelChange: (KimiModel) -> Void
+    let onHistoryModeChange: (CoachHistoryMode) -> Void
     let onReboot: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var key = ""
     @State private var model: KimiModel
+    @State private var historyMode: CoachHistoryMode
 
     init(
         hasKey: Bool,
@@ -21,6 +23,7 @@ struct KimiSettingsSheet: View {
         onSave: @escaping (String) -> Void,
         onClear: @escaping () -> Void,
         onModelChange: @escaping (KimiModel) -> Void,
+        onHistoryModeChange: @escaping (CoachHistoryMode) -> Void,
         onReboot: @escaping () -> Void
     ) {
         self.hasKey = hasKey
@@ -29,8 +32,10 @@ struct KimiSettingsSheet: View {
         self.onSave = onSave
         self.onClear = onClear
         self.onModelChange = onModelChange
+        self.onHistoryModeChange = onHistoryModeChange
         self.onReboot = onReboot
         _model = State(initialValue: KimiModelStore.selected())
+        _historyMode = State(initialValue: CoachHistoryModeStore.selected())
     }
 
     var body: some View {
@@ -51,12 +56,7 @@ struct KimiSettingsSheet: View {
 
                 modelSection
                 runtimeSection
-
-                Section("会发给模型的上下文") {
-                    Text("system 里是三份计划文档全文（训练计划 / WOD 手册 / 动作说明）；每次提问前在 user 消息前缀里附上最近 7 天的训练记录和当前周次。对话只读，模型没有写数据的工具。")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
+                historyModeSection
             }
             .navigationTitle("教练设置")
             .navigationBarTitleDisplayMode(.inline)
@@ -109,6 +109,38 @@ struct KimiSettingsSheet: View {
             set: { picked in
                 model = picked
                 onModelChange(picked)
+            }
+        )
+    }
+
+    // MARK: - 训练参考
+
+    /// 历史训练参考档位：改了就立刻落盘并刷上下文，下次提问生效。
+    @ViewBuilder
+    private var historyModeSection: some View {
+        Section {
+            Picker("训练参考", selection: historyModeBinding) {
+                ForEach(CoachHistoryMode.allCases) { candidate in
+                    Text(candidate.title).tag(candidate)
+                }
+            }
+            .pickerStyle(.inline)
+            Text(historyMode.note)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } header: {
+            Text("会发给模型的上下文")
+        } footer: {
+            Text("system 里是三份计划文档全文（训练计划 / WOD 手册 / 动作说明）；每次提问前在 user 消息前缀里附上当前周次和按档位选出的训练记录。对话只读，模型没有写数据的工具。对话页输入框上方也能快速切换，两处是同一份设置。")
+        }
+    }
+
+    private var historyModeBinding: Binding<CoachHistoryMode> {
+        Binding(
+            get: { historyMode },
+            set: { picked in
+                historyMode = picked
+                onHistoryModeChange(picked)
             }
         )
     }

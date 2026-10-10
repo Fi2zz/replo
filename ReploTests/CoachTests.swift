@@ -70,6 +70,55 @@ struct CoachPromptTests {
         #expect(context.prefix.contains("这 7 天没有训练记录"))
     }
 
+    @Test("仅上次训练档：标题换成上次训练，空态说还没有记录")
+    func lastSessionPrefixLayout() throws {
+        let context = CoachContext(
+            weekIndex: 1,
+            templateName: "4周重建 v2",
+            historyMode: .lastSession,
+            recentSessions: [
+                CoachContext.SessionSummary(
+                    date: try #require(date(2026, 8, 1)),
+                    dayType: .dayB,
+                    lines: ["- 深蹲：完成 3/3 组"]
+                ),
+            ],
+            todayNote: "2026年9月22日 星期二 · 低强度有氧｜坡度走"
+        )
+
+        #expect(context.prefix.contains("【上次训练】"))
+        #expect(context.prefix.contains("8月1日"))
+        #expect(context.prefix.contains("最近 7 天训练记录") == false)
+
+        let empty = CoachContext(
+            weekIndex: 1, templateName: "4周重建 v2", historyMode: .lastSession,
+            recentSessions: [], todayNote: "今天"
+        )
+        #expect(empty.prefix.contains("（还没有训练记录）"))
+    }
+
+    @Test("不带历史档：整段训练记录不进前缀，计划和今天仍在")
+    func noneModeDropsHistorySection() throws {
+        let context = CoachContext(
+            weekIndex: 1,
+            templateName: "4周重建 v2",
+            historyMode: .none,
+            recentSessions: [
+                CoachContext.SessionSummary(
+                    date: try #require(date(2026, 9, 21)),
+                    dayType: .dayB,
+                    lines: ["- 深蹲：完成 3/3 组"]
+                ),
+            ],
+            todayNote: "今天"
+        )
+
+        #expect(context.prefix.contains("【当前计划】"))
+        #expect(context.prefix.contains("【今天】"))
+        #expect(context.prefix.contains("训练记录") == false)
+        #expect(context.prefix.contains("深蹲") == false)
+    }
+
     @Test("周次显示成第 N+1 周，存储是 0 起")
     func weekIndexIsOneBasedForDisplay() {
         let context = CoachContext(weekIndex: 3, templateName: "AB 常模", recentSessions: [], todayNote: "")
@@ -145,6 +194,64 @@ struct CoachContextBuilderTests {
             decisions: [],
             movements: harness.movements,
             today: harness.date(2026, 9, 22)
+        )
+
+        #expect(summaries.isEmpty)
+    }
+
+    @Test("仅上次训练档：7 天外的最近一节课也带上")
+    func lastSessionReachesBeyondWindow() throws {
+        let harness = try CoachHarness()
+        let old = SessionLog(date: harness.date(2026, 9, 1), dayType: .dayB)
+        harness.context.insert(old)
+        try harness.context.save()
+
+        let summaries = CoachContextBuilder.recent(
+            logs: [old],
+            decisions: [],
+            movements: harness.movements,
+            today: harness.date(2026, 9, 22),
+            historyMode: .lastSession
+        )
+
+        #expect(summaries.count == 1)
+        #expect(summaries.first?.dayType == .dayB)
+    }
+
+    @Test("仅上次训练档：多节课里只取最新的一节")
+    func lastSessionTakesNewestOnly() throws {
+        let harness = try CoachHarness()
+        let older = SessionLog(date: harness.date(2026, 9, 18), dayType: .dayA)
+        let newer = SessionLog(date: harness.date(2026, 9, 21), dayType: .dayB)
+        harness.context.insert(older)
+        harness.context.insert(newer)
+        try harness.context.save()
+
+        let summaries = CoachContextBuilder.recent(
+            logs: [older, newer],
+            decisions: [],
+            movements: harness.movements,
+            today: harness.date(2026, 9, 22),
+            historyMode: .lastSession
+        )
+
+        #expect(summaries.count == 1)
+        #expect(summaries.first?.dayType == .dayB)
+    }
+
+    @Test("不带历史档：有记录也返回空")
+    func noneModeReturnsEmpty() throws {
+        let harness = try CoachHarness()
+        let log = SessionLog(date: harness.date(2026, 9, 21), dayType: .dayB)
+        harness.context.insert(log)
+        try harness.context.save()
+
+        let summaries = CoachContextBuilder.recent(
+            logs: [log],
+            decisions: [],
+            movements: harness.movements,
+            today: harness.date(2026, 9, 22),
+            historyMode: .none
         )
 
         #expect(summaries.isEmpty)
@@ -226,5 +333,39 @@ private struct CoachHarness {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Shanghai") ?? .current
         return calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 9)) ?? Date()
+    }
+}
+
+@Suite("历史参考档位", .serialized)
+struct CoachHistoryModeStoreTests {
+    @Test("档位只有三档，顺序固定")
+    func offersThreeModes() {
+        #expect(CoachHistoryMode.allCases.map(\.rawValue) == ["lastWeek", "lastSession", "none"])
+    }
+
+    @Test("没选过的时候默认最近 7 天")
+    func defaultsToLastWeek() throws {
+        #expect(CoachHistoryModeStore.selected(in: try isolated()) == .lastWeek)
+    }
+
+    @Test("选过之后记得住")
+    func remembersSelection() throws {
+        let defaults = try isolated()
+        CoachHistoryModeStore.save(.lastSession, to: defaults)
+
+        #expect(CoachHistoryModeStore.selected(in: defaults) == .lastSession)
+        #expect(CoachHistoryModeStore.selected(in: try isolated()) == .lastWeek, "另一个域不受影响")
+    }
+
+    @Test("存了个不认识的档位就退回默认，不崩")
+    func fallsBackOnUnknownValue() throws {
+        let defaults = try isolated()
+        defaults.set("everything", forKey: CoachHistoryModeStore.defaultsKey)
+
+        #expect(CoachHistoryModeStore.selected(in: defaults) == .lastWeek)
+    }
+
+    private func isolated() throws -> UserDefaults {
+        try #require(UserDefaults(suiteName: "coach-history-mode-tests-\(UUID().uuidString)"))
     }
 }

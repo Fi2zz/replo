@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// 教练页：先填 Moonshot API Key 与模型，再问。问句会带上最近 7 天的训练上下文。
+/// 教练页：先填 Moonshot API Key 与模型，再问。问句按用户选择的档位带训练上下文（默认最近 7 天）。
 struct ChatView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(RuntimeStore.self) private var runtime
@@ -17,6 +17,7 @@ struct ChatView: View {
     @State private var keyFailure: String?
     @State private var isShowingSettings = false
     @State private var isShowingHistory = false
+    @State private var historyMode: CoachHistoryMode = .lastWeek
 
     var body: some View {
         NavigationStack {
@@ -27,7 +28,8 @@ struct ChatView: View {
                     streamingReasoning: store?.streamingReasoning ?? "",
                     isSending: store?.isSending ?? false
                 )
-                failureBanner
+                ChatFailureBanner(failure: store?.failure, onDismiss: { store?.dismissFailure() })
+                HistoryModeChip(mode: historyMode, onChange: pickHistoryMode)
                 ChatComposer(
                     text: $draft,
                     isSending: store?.isSending ?? false,
@@ -64,6 +66,7 @@ struct ChatView: View {
                     onSave: { saveKey($0) },
                     onClear: { clearKey() },
                     onModelChange: { pick($0) },
+                    onHistoryModeChange: { pickHistoryMode($0) },
                     onReboot: { runtime.restart() }
                 )
             }
@@ -94,31 +97,6 @@ struct ChatView: View {
             isShowingSettings = true
         } label: {
             Image(systemName: "key")
-        }
-    }
-
-    /// 发不出去时在输入条上方说清楚，不静默失败。
-    @ViewBuilder
-    private var failureBanner: some View {
-        if let failure = store?.failure {
-            Button {
-                store?.dismissFailure()
-            } label: {
-                HStack(alignment: .top, spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                    Text(failure)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 0)
-                    Image(systemName: "xmark")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 6)
-            }
-            .buttonStyle(.plain)
         }
     }
 
@@ -160,10 +138,18 @@ struct ChatView: View {
         runtime.restart()
     }
 
+    /// 换历史参考档位：落盘 + 立刻按新档位重拼上下文，下次提问生效。
+    private func pickHistoryMode(_ mode: CoachHistoryMode) {
+        historyMode = mode
+        CoachHistoryModeStore.save(mode)
+        store?.update(context: currentContext)
+    }
+
     // MARK: - 组装
 
     private func prepare() {
         runtime.start()
+        historyMode = CoachHistoryModeStore.selected()
         if let store {
             store.update(context: currentContext)
         } else {
@@ -177,7 +163,7 @@ struct ChatView: View {
         }
     }
 
-    /// 每次取都是最新的一版：换了会话、或者刚练完，都应该按当时的记录重新拼。
+    /// 每次取都是最新的一版：换了会话、换了参考档位、或者刚练完，都应该按当时的记录重新拼。
     private var currentContext: CoachContext {
         CoachContextBuilder.make(
             logs: logs,
@@ -185,7 +171,8 @@ struct ChatView: View {
             movements: movements,
             activePlan: activePlans.first { $0.active } ?? activePlans.first,
             templates: templates,
-            today: Date()
+            today: Date(),
+            historyMode: historyMode
         )
     }
 
