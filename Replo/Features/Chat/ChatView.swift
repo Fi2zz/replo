@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// 教练页：先填 Moonshot API Key 与模型，再问。上下文内容用户可选：历史档位（默认最近 7 天）与计划/今天安排。
+/// 教练页：先选提供商、填 API Key 与模型，再问。上下文内容用户可选：历史档位（默认最近 7 天）与计划/今天安排。
 struct ChatView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(RuntimeStore.self) private var runtime
@@ -32,13 +32,15 @@ struct ChatView: View {
                     isSending: store?.isSending ?? false
                 )
                 ChatFailureBanner(failure: store?.failure, onDismiss: { store?.dismissFailure() })
-                HistoryModeChip(
-                    mode: historyMode,
-                    planIncluded: planIncluded,
-                    onChange: pickHistoryMode,
-                    onPlanIncludedChange: pickPlanIncluded
-                )
-                MovementPickBar(selected: $selectedMovements, isPicking: $isPickingMovements)
+                HStack(spacing: 4) {
+                    HistoryModeChip(
+                        mode: historyMode,
+                        planIncluded: planIncluded,
+                        onChange: pickHistoryMode,
+                        onPlanIncludedChange: pickPlanIncluded
+                    )
+                    MovementPickBar(selected: $selectedMovements, isPicking: $isPickingMovements)
+                }
                 ChatComposer(
                     text: $draft,
                     isSending: store?.isSending ?? false,
@@ -68,12 +70,11 @@ struct ChatView: View {
                 )
             }
             .sheet(isPresented: $isShowingSettings) {
-                KimiSettingsSheet(
-                    hasKey: runtime.hasKey,
-                    fingerprint: runtime.keyFingerprint,
+                CoachSettingsSheet(
                     state: runtime.state.label,
-                    onSave: { saveKey($0) },
-                    onClear: { clearKey() },
+                    onSave: { saveKey($0, provider: $1) },
+                    onClear: { clearKey($0) },
+                    onProviderChange: { pickProvider($0) },
                     onModelChange: { pick($0) },
                     onHistoryModeChange: { pickHistoryMode($0) },
                     onPlanIncludedChange: { pickPlanIncluded($0) },
@@ -102,27 +103,33 @@ struct ChatView: View {
         _Concurrency.Task { await store?.send(text, movements: movements) }
     }
 
-    private func saveKey(_ value: String) {
+    private func saveKey(_ value: String, provider: CoachProvider) {
         do {
-            if !value.isEmpty { try KimiKeyStore.save(value) }
+            if !value.isEmpty { try CoachKeyStore.save(value, provider: provider) }
             runtime.restart()
         } catch {
             keyFailure = error.localizedDescription
         }
     }
 
-    private func clearKey() {
+    private func clearKey(_ provider: CoachProvider) {
         do {
-            try KimiKeyStore.clear()
+            try CoachKeyStore.clear(provider: provider)
             runtime.restart()
         } catch {
             keyFailure = error.localizedDescription
         }
+    }
+
+    /// 换提供商：先记住再重装，端点与凭据是装配时定死的。不关面板，方便来回试。
+    private func pickProvider(_ provider: CoachProvider) {
+        CoachProviderStore.save(provider)
+        runtime.restart()
     }
 
     /// 换模型：先记住再重装，provider 的模型是装配时定死的。不关面板，方便来回试。
-    private func pick(_ model: KimiModel) {
-        KimiModelStore.save(model)
+    private func pick(_ model: CoachModel) {
+        CoachModelStore.save(model, provider: CoachProviderStore.selected())
         runtime.restart()
     }
 

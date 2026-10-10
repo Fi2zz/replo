@@ -9,10 +9,12 @@ import SwiftusCredentials
 @ContextTreeActor
 final class KeychainCredentials: Credentials {
     private let service: String
+    private let credentialKey: String
     private let snapshot = CredentialSnapshot()
 
-    init(service: String) {
+    init(service: String, credentialKey: String) {
         self.service = service
+        self.credentialKey = credentialKey
     }
 
     var keys: [String] { snapshot.keys }
@@ -38,14 +40,15 @@ final class KeychainCredentials: Credentials {
     ///
     /// 例外：端点被环境变量指到本机假服务时补一把占位 Key——假服务不校验 Key，
     /// 这样 `make run-mock` 在干净的模拟器上也能直接跑通，不必先手输一把假 key。
+    /// 环境变量覆盖只对 Kimi 开放，所以这里认 `CoachLlmConfig.isOverridden` 就够。
     func refresh() async throws {
-        let entries = [KimiConfig.credentialKey].compactMap { key -> Credential? in
+        let entries = [credentialKey].compactMap { key -> Credential? in
             guard let value = try? KeychainStore.read(service: service, account: key),
                   !value.isEmpty else { return nil }
             return Credential(key: key, value: value)
         }
-        if entries.isEmpty, KimiConfig.isOverridden {
-            let placeholder = Credential(key: KimiConfig.credentialKey, value: "mock-key")
+        if entries.isEmpty, CoachLlmConfig.isOverridden {
+            let placeholder = Credential(key: credentialKey, value: "mock-key")
             snapshot.refreshSnapshot([placeholder.key: placeholder])
             return
         }

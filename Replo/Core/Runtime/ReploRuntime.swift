@@ -12,13 +12,17 @@ final class ReploRuntime {
     private let provider: any LlmProvider
 
     /// 装配：凭据（钥匙串）→ 校验 Key → LLM wire 层。整条链随 `context` 释放。
+    /// 提供商在装配时定死：设置页换了提供商或模型就走 `RuntimeStore.restart()` 重来一遍。
     static func bootstrap() async throws -> ReploRuntime {
         let context = Context.root(name: "replo")
-        let source = KeychainCredentials(service: KimiConfig.keychainService)
+        let source = KeychainCredentials(
+            service: CoachLlmConfig.provider.keychainService,
+            credentialKey: CoachLlmConfig.provider.credentialKey
+        )
         let credentials = try provideCredentials(context, credentials: source)
         try await credentials.refresh()
-        _ = try credentials.require(KimiConfig.credentialKey)
-        let provider = OpenAiCompatibleProvider(config: KimiConfig.openAi(), credentials: credentials)
+        _ = try credentials.require(CoachLlmConfig.provider.credentialKey)
+        let provider = OpenAiCompatibleProvider(config: CoachLlmConfig.openAi(), credentials: credentials)
         return ReploRuntime(context: context, credentials: credentials, provider: provider)
     }
 
@@ -46,7 +50,7 @@ final class ReploRuntime {
     private func chatRequest(system: String, conversation: [LlmMessage], question: String) -> LlmRequest {
         LlmRequest(
             messages: [LlmMessage("system", system)] + conversation + [LlmMessage("user", question)],
-            options: KimiConfig.requestOptions
+            options: CoachLlmConfig.requestOptions
         )
     }
 }

@@ -45,8 +45,9 @@ final class RuntimeStore {
     }
 
     func refreshKeyState() {
-        hasKey = KimiKeyStore.isSaved()
-        keyFingerprint = KimiKeyStore.fingerprint()
+        let provider = CoachProviderStore.selected()
+        hasKey = CoachKeyStore.isSaved(provider: provider)
+        keyFingerprint = CoachKeyStore.fingerprint(provider: provider)
     }
 
     /// 问教练一句。运行时装配失败、Key 缺失都原样抛给界面，不静默吞掉。
