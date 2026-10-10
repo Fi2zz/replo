@@ -127,6 +127,40 @@ struct CoachProviderTests {
         #expect(CoachLlmConfig.reasoningEffort == .high, "认不出就退回默认 high")
     }
 
+    @Test("设置页选过的档位直接进请求，DeepSeek 也认")
+    func storedEffortApplies() throws {
+        let restore = pinProvider(.deepseek)
+        defer { restore() }
+        ReasoningEffortStore.save(.max)
+        defer { UserDefaults.standard.removeObject(forKey: ReasoningEffortStore.defaultsKey) }
+
+        #expect(CoachLlmConfig.reasoningEffort == .max)
+        #expect(CoachLlmConfig.requestOptions?["reasoning_effort"]?.stringValue == "max")
+    }
+
+    @Test("环境变量顶掉设置页选过的档位（仅 kimi 联调通道）")
+    func environmentEffortWinsOverStored() throws {
+        let restore = pinProvider(.kimi)
+        defer { restore() }
+        ReasoningEffortStore.save(.max)
+        defer { UserDefaults.standard.removeObject(forKey: ReasoningEffortStore.defaultsKey) }
+        setenv("KIMI_REASONING_EFFORT", "low", 1)
+        defer { unsetenv("KIMI_REASONING_EFFORT") }
+
+        #expect(CoachLlmConfig.reasoningEffort == .low)
+        #expect(CoachLlmConfig.isEffortOverridden)
+    }
+
+    @Test("存了个认不出的档位就退回默认 high，不崩")
+    func invalidStoredEffortFallsBack() throws {
+        let restore = pinProvider(.kimi)
+        defer { restore() }
+        UserDefaults.standard.set("ultra", forKey: ReasoningEffortStore.defaultsKey)
+        defer { UserDefaults.standard.removeObject(forKey: ReasoningEffortStore.defaultsKey) }
+
+        #expect(CoachLlmConfig.reasoningEffort == .high)
+    }
+
     @Test("默认档位是 high")
     func defaultEffortIsHigh() {
         unsetenv("KIMI_REASONING_EFFORT")

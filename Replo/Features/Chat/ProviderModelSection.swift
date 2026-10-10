@@ -7,11 +7,13 @@ struct ProviderModelSection: View {
     let onModelChange: (CoachModel) -> Void
 
     @State private var model: CoachModel
+    @State private var effort: ReasoningEffort
 
     init(provider: CoachProvider, onModelChange: @escaping (CoachModel) -> Void) {
         self.provider = provider
         self.onModelChange = onModelChange
         _model = State(initialValue: CoachModelStore.selected(provider: provider))
+        _effort = State(initialValue: ReasoningEffortStore.selected())
     }
 
     var body: some View {
@@ -31,7 +33,7 @@ struct ProviderModelSection: View {
                 Text(model.note)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                LabeledContent("推理档位", value: effortText)
+                effortRow
             }
         } header: {
             Text("模型")
@@ -40,11 +42,38 @@ struct ProviderModelSection: View {
         }
     }
 
-    /// 档位只对认 `reasoning_effort` 的模型有意义，其余一个多余字段都不发。
-    /// Kimi 联调可用 KIMI_REASONING_EFFORT 顶掉。
-    private var effortText: String {
-        guard model.acceptsReasoningEffort else { return "不适用（该模型不认这个参数）" }
-        return CoachLlmConfig.reasoningEffort.rawValue
+    /// 档位只对认 `reasoning_effort` 的模型开放；改完下一条消息就生效，不用重新装配。
+    @ViewBuilder
+    private var effortRow: some View {
+        if model.acceptsReasoningEffort {
+            effortControl
+        } else {
+            LabeledContent("推理档位", value: "不适用（该模型不认这个参数）")
+        }
+    }
+
+    /// 被环境变量钉住时只显示值，免得以为在这里改有用。
+    @ViewBuilder
+    private var effortControl: some View {
+        if CoachLlmConfig.isEffortOverridden {
+            LabeledContent("推理档位", value: CoachLlmConfig.reasoningEffort.rawValue)
+        } else {
+            Picker("推理档位", selection: effortBinding) {
+                ForEach(ReasoningEffort.allCases, id: \.self) { candidate in
+                    Text(candidate.rawValue).tag(candidate)
+                }
+            }
+        }
+    }
+
+    private var effortBinding: Binding<ReasoningEffort> {
+        Binding(
+            get: { effort },
+            set: { picked in
+                effort = picked
+                ReasoningEffortStore.save(picked)
+            }
+        )
     }
 
     private var modelBinding: Binding<CoachModel> {

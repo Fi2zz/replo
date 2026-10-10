@@ -18,13 +18,18 @@ enum CoachLlmConfig {
         overridden("KIMI_MODEL") ?? CoachModelStore.selected(provider: provider).id
     }
 
-    /// 推理档位：联调用环境变量顶掉 > 默认 high。只对认这个参数的模型有意义。
+    /// 推理档位：联调用环境变量顶掉 > 设置页选过的 > 默认 high。只对认这个参数的模型有意义。
     static var reasoningEffort: ReasoningEffort {
-        guard let raw = overridden("KIMI_REASONING_EFFORT"),
-              let effort = ReasoningEffort(rawValue: raw) else {
-            return ReasoningEffort.fallback
+        if let raw = overridden("KIMI_REASONING_EFFORT"),
+           let effort = ReasoningEffort(rawValue: raw) {
+            return effort
         }
-        return effort
+        return ReasoningEffortStore.selected()
+    }
+
+    /// 档位被环境变量钉住时设置页的选择器不生效，界面上只显示值，免得以为改了有用。
+    static var isEffortOverridden: Bool {
+        overridden("KIMI_REASONING_EFFORT") != nil
     }
 
     /// 端点或模型被环境变量改过：界面上要能看出来，免得以为在跟真服务说话。
@@ -80,4 +85,22 @@ enum ReasoningEffort: String, CaseIterable, Sendable {
     case max
 
     static let fallback: ReasoningEffort = .high
+}
+
+/// 设置页选过的推理档位。不是秘密，放 UserDefaults；认 effort 的模型共用这一档，
+/// 存了个认不出的值就退回默认，不崩。
+enum ReasoningEffortStore {
+    static let defaultsKey = "replo.coach.reasoning.effort"
+
+    static func selected(in defaults: UserDefaults = .standard) -> ReasoningEffort {
+        guard let raw = defaults.string(forKey: defaultsKey),
+              let effort = ReasoningEffort(rawValue: raw) else {
+            return .fallback
+        }
+        return effort
+    }
+
+    static func save(_ effort: ReasoningEffort, to defaults: UserDefaults = .standard) {
+        defaults.set(effort.rawValue, forKey: defaultsKey)
+    }
 }
